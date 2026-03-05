@@ -138,8 +138,8 @@ export type { InstrumentProfile }
 export interface PitchDetectorState {
   fastAnalyser: AnalyserNode
   preciseAnalyser: AnalyserNode
-  fastBuffer: Float32Array
-  preciseBuffer: Float32Array
+  fastBuffer: Float32Array<ArrayBuffer>
+  preciseBuffer: Float32Array<ArrayBuffer>
   stream: MediaStream
   confirmedNote: NoteName | null
   silenceCount: number

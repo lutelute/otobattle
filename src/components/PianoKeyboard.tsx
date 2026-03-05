@@ -1,6 +1,5 @@
 import { useRef, useState } from 'react'
 import type { GameInput, NoteName } from '../game/types'
-import { NOTES } from '../game/notes'
 
 interface PianoKeyboardProps {
   inputRef: React.MutableRefObject<GameInput>
@@ -69,9 +68,6 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
     }
   }
 
-  // C4のオクターブは OCTAVE_START + 2 (C2開始なら oct index=2)
-  const c4OctaveIdx = 4 - OCTAVE_START
-
   return (
     <div className="bg-[#0a0a14] select-none flex flex-col">
       {/* Piano */}
@@ -86,7 +82,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
         <div className="relative" style={{ height: '110px' }}>
           {/* White keys */}
           <div className="flex h-full">
-            {whiteKeys.map(({ note, octave, globalIdx }) => {
+            {whiteKeys.map(({ note, octave }) => {
               const keyId = `${note}${octave}`
               const isActive = activeKey === keyId
               const isC4Octave = octave === 4

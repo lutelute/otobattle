@@ -1,4 +1,4 @@
-import type { GameState, GameInput, NoteName, DisplaySettings } from './types'
+import type { GameState, GameInput, DisplaySettings } from './types'
 import {
   PLAYER_MAX_HP, CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT,
   ENEMY_BASE_SPEED, ENEMY_SPEED_INCREMENT,
