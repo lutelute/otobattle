@@ -21,7 +21,7 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
   const lastTimeRef = useRef<number>(0)
   const [hud, setHud] = useState<HudState>({
     hp: 5, maxHp: 5, score: 0, wave: 0, combo: 0, phase: 'title', lastNoteAttack: null,
-    settings: { showSolfege: true, theme: 'dark', instrument: 'piano' },
+    settings: { notationFormat: 'solfege', theme: 'dark', instrument: 'piano' },
   })
   const hudThrottleRef = useRef(0)
 

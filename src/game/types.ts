@@ -106,7 +106,7 @@ export interface ModeState {
 
 /** 表示設定 */
 export interface DisplaySettings {
-  showSolfege: boolean  // カタカナ(ソルフェージュ)表記 on/off
+  notationFormat: NotationFormat // 記譜法フォーマット（'abc'=英語音名, 'solfege'=カタカナ, 'staff'=五線譜のみ）
   theme: 'dark' | 'light' // 背景テーマ
   instrument: InstrumentType // 使用楽器（ピッチ検出最適化用）
 }

@@ -285,14 +285,21 @@ function drawEnemy(
   const stemUp = placement.steps < 4
   drawStem(ctx, noteX, noteY, noteSize, stemUp, c.noteColor)
 
-  // ── カタカナラベル ──
-  if (state.settings.showSolfege) {
+  // ── 音名ラベル ──
+  if (state.settings.notationFormat === 'solfege') {
     ctx.fillStyle = c.labelColor
     ctx.font = 'bold 10px monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'top'
     ctx.fillText(noteInfo.solfege, 0, panelTop + panelH + 4)
+  } else if (state.settings.notationFormat === 'abc') {
+    ctx.fillStyle = c.labelColor
+    ctx.font = 'bold 10px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    ctx.fillText(noteInfo.name, 0, panelTop + panelH + 4)
   }
+  // 'staff' format: no text label
 
   // ── インベーダーアイコン（パネル上部に表示） ──
   if (enemy.enemyType === 'invader') {

@@ -74,8 +74,10 @@ export function GameCanvas() {
             <HUD
               hp={hud.hp} maxHp={hud.maxHp} score={hud.score} wave={hud.wave} combo={hud.combo}
               settings={hud.settings}
-              onToggleSolfege={() => {
-                stateRef.current.settings.showSolfege = !stateRef.current.settings.showSolfege
+              onCycleNotation={() => {
+                const order: import('../game/types').NotationFormat[] = ['abc', 'solfege', 'staff']
+                const idx = order.indexOf(stateRef.current.settings.notationFormat)
+                stateRef.current.settings.notationFormat = order[(idx + 1) % order.length]
               }}
               onToggleTheme={() => {
                 stateRef.current.settings.theme = stateRef.current.settings.theme === 'dark' ? 'light' : 'dark'

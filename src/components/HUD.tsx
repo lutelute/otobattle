@@ -3,6 +3,12 @@ import { INSTRUMENT_PROFILES } from '../audio/pitchDetector'
 
 const INSTRUMENT_ORDER: InstrumentType[] = ['piano', 'violin', 'viola', 'cello', 'guitar', 'flute', 'voice']
 
+const NOTATION_LABELS: Record<import('../game/types').NotationFormat, string> = {
+  abc: 'ABC',
+  solfege: 'ドレミ',
+  staff: '♪',
+}
+
 interface HUDProps {
   hp: number
   maxHp: number
@@ -10,13 +16,13 @@ interface HUDProps {
   wave: number
   combo: number
   settings: DisplaySettings
-  onToggleSolfege: () => void
+  onCycleNotation: () => void
   onToggleTheme: () => void
   onChangeInstrument: (inst: InstrumentType) => void
   onHome: () => void
 }
 
-export function HUD({ hp, maxHp, score, wave, combo, settings, onToggleSolfege, onToggleTheme, onChangeInstrument, onHome }: HUDProps) {
+export function HUD({ hp, maxHp, score, wave, combo, settings, onCycleNotation, onToggleTheme, onChangeInstrument, onHome }: HUDProps) {
   const cycleInstrument = () => {
     const idx = INSTRUMENT_ORDER.indexOf(settings.instrument)
     const next = INSTRUMENT_ORDER[(idx + 1) % INSTRUMENT_ORDER.length]
@@ -129,10 +135,11 @@ export function HUD({ hp, maxHp, score, wave, combo, settings, onToggleSolfege, 
             {INSTRUMENT_PROFILES[settings.instrument].label}
           </button>
           <button
-            onClick={onToggleSolfege}
+            onClick={onCycleNotation}
             className={`px-2.5 py-1 text-[10px] rounded-md transition-colors ${btnClass}`}
+            title="記譜法切替"
           >
-            {settings.showSolfege ? 'ABC' : 'ドレミ'}
+            {NOTATION_LABELS[settings.notationFormat]}
           </button>
           <button
             onClick={onToggleTheme}

@@ -55,7 +55,7 @@ export function createInitialState(
     noteAttackTimer: 0,
     combo: 0,
     lastAttackTime: 0,
-    settings: { showSolfege: true, theme: 'dark', instrument: 'piano', ...settings },
+    settings: { notationFormat: 'solfege', theme: 'dark', instrument: 'piano', ...settings },
     mode,
     modeState: createModeState(mode),
     difficulty,
