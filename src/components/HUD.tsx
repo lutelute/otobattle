@@ -1,5 +1,5 @@
 import type { DisplaySettings, InstrumentType, GameMode, ModeState } from '../game/types'
-import type { ScalesState } from '../game/modes/types'
+import type { ScalesState, ChordsState } from '../game/modes/types'
 import { INSTRUMENT_PROFILES } from '../audio/pitchDetector'
 
 const INSTRUMENT_ORDER: InstrumentType[] = ['piano', 'violin', 'viola', 'cello', 'guitar', 'flute', 'voice']
@@ -113,6 +113,28 @@ export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, 
                 style={{ color: isDark ? '#94a3b8' : '#64748b', textShadow }}
               >
                 {currentStep}/{totalSteps} {dirArrow}
+              </span>
+            </div>
+          )
+        })()}
+        {/* Chords mode: chord name and matched notes progress */}
+        {mode === 'chords' && modeState && (() => {
+          const cd = modeState.data as unknown as ChordsState
+          const matched = cd.matchedNotes.length
+          const total = cd.activeChordNotes.length
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span
+                className="text-sm font-bold"
+                style={{ color: '#a78bfa', textShadow }}
+              >
+                {cd.currentChord}
+              </span>
+              <span
+                className="text-xs"
+                style={{ color: isDark ? '#94a3b8' : '#64748b', textShadow }}
+              >
+                {matched}/{total} notes
               </span>
             </div>
           )

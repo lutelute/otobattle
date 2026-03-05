@@ -1,5 +1,5 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
-import type { ScalesState } from './modes/types'
+import type { ScalesState, ChordsState } from './modes/types'
 import { NOTES, getStaffPlacement } from './notes'
 import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS, BEAM_ZIGZAG_AMPLITUDE, BEAM_ZIGZAG_SEGMENTS, BEAM_LIGHTNING_SEGMENTS } from './constants'
 import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef, drawAltoClef } from './musicGlyphs'
@@ -94,6 +94,11 @@ export function render(
     drawEnemy(ctx, enemy, state, c)
   }
 
+  // Chords mode: draw chord group connections and labels
+  if (state.mode === 'chords') {
+    drawChordGroups(ctx, state, c)
+  }
+
   // ビーム描画
   for (const beam of state.beams) {
     drawBeam(ctx, beam, c.beamCore)
@@ -131,6 +136,11 @@ export function render(
       ctx.fillText(`WAVE ${state.wave}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 80)
       ctx.font = 'bold 24px monospace'
       ctx.fillText(scaleName, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 40)
+    } else if (state.mode === 'chords' && state.modeState) {
+      const cd = state.modeState.data as unknown as ChordsState
+      ctx.fillText(`WAVE ${state.wave}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 80)
+      ctx.font = 'bold 24px monospace'
+      ctx.fillText(`Chord: ${cd.currentChord}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 40)
     } else {
       ctx.fillText(`WAVE ${state.wave}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 60)
     }
@@ -141,6 +151,11 @@ export function render(
   // Scales mode: draw scale info overlay above play area
   if (state.mode === 'scales' && state.modeState && state.phase === 'playing') {
     drawScalesInfo(ctx, state, c)
+  }
+
+  // Chords mode: draw chord info overlay above play area
+  if (state.mode === 'chords' && state.modeState && state.phase === 'playing') {
+    drawChordsInfo(ctx, state, c)
   }
 
   if (state.player.damageFlash > 0) {
@@ -519,6 +534,122 @@ function drawScalesInfo(
   ctx.fillStyle = c.labelColor
   ctx.font = '13px monospace'
   ctx.fillText(`${currentDegree}/${totalSteps} ${directionArrow}`, cx, y + 18)
+
+  ctx.restore()
+}
+
+/**
+ * Draw chord group connections and labels.
+ * Groups enemies that share a chordGroupId with subtle connecting lines
+ * and renders the chord name centered above the group.
+ */
+function drawChordGroups(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  c: ReturnType<typeof themeColors>,
+) {
+  if (!state.modeState) return
+  const cd = state.modeState.data as unknown as ChordsState
+
+  // Collect alive enemies by chordGroupId
+  const groups = new Map<string, typeof state.enemies>()
+  for (const enemy of state.enemies) {
+    if (!enemy.alive || !enemy.chordGroupId) continue
+    const arr = groups.get(enemy.chordGroupId)
+    if (arr) {
+      arr.push(enemy)
+    } else {
+      groups.set(enemy.chordGroupId, [enemy])
+    }
+  }
+
+  for (const [, enemies] of groups) {
+    if (enemies.length < 2) {
+      // Single enemy in group — still draw chord label above it
+      const e = enemies[0]
+      ctx.save()
+      ctx.globalAlpha = 0.9
+      ctx.fillStyle = c.waveText
+      ctx.font = 'bold 12px monospace'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(cd.currentChord, e.pos.x, e.pos.y - e.radius - 52)
+      ctx.restore()
+      continue
+    }
+
+    // Draw subtle connecting lines between group members
+    ctx.save()
+    ctx.globalAlpha = 0.25
+    ctx.strokeStyle = c.waveText
+    ctx.lineWidth = 1.5
+    ctx.setLineDash([4, 4])
+    ctx.beginPath()
+    // Sort by x position for a clean connection path
+    const sorted = [...enemies].sort((a, b) => a.pos.x - b.pos.x)
+    ctx.moveTo(sorted[0].pos.x, sorted[0].pos.y)
+    for (let i = 1; i < sorted.length; i++) {
+      ctx.lineTo(sorted[i].pos.x, sorted[i].pos.y)
+    }
+    ctx.stroke()
+    ctx.setLineDash([])
+    ctx.restore()
+
+    // Calculate centroid of group for label placement
+    let cx = 0
+    let cy = 0
+    let minY = Infinity
+    for (const e of enemies) {
+      cx += e.pos.x
+      cy += e.pos.y
+      if (e.pos.y - e.radius < minY) minY = e.pos.y - e.radius
+    }
+    cx /= enemies.length
+    // Place label above the topmost enemy in the group
+    const labelY = minY - 56
+
+    // Draw chord name label
+    ctx.save()
+    ctx.globalAlpha = 0.9
+    ctx.fillStyle = c.waveText
+    ctx.font = 'bold 14px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.fillText(cd.currentChord, cx, labelY)
+    ctx.restore()
+  }
+}
+
+/**
+ * Draw chords mode info overlay: chord name, matched notes progress.
+ * Rendered at the top-center of the canvas during 'playing' phase.
+ */
+function drawChordsInfo(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  c: ReturnType<typeof themeColors>,
+) {
+  const cd = state.modeState!.data as unknown as ChordsState
+
+  const cx = CANVAS_BASE_WIDTH / 2
+  const y = 28
+
+  ctx.save()
+  ctx.globalAlpha = 0.85
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  // Chord name (e.g. "Cmaj7")
+  ctx.fillStyle = c.waveText
+  ctx.font = 'bold 16px monospace'
+  ctx.fillText(cd.currentChord, cx, y)
+
+  // Matched notes progress (e.g. "2/4 notes")
+  const matched = cd.matchedNotes.length
+  const total = cd.activeChordNotes.length
+  ctx.fillStyle = c.labelColor
+  ctx.font = '13px monospace'
+  ctx.fillText(`${matched}/${total} notes`, cx, y + 18)
 
   ctx.restore()
 }

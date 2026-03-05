@@ -7,6 +7,8 @@ interface PianoKeyboardProps {
   micEnabled: boolean
   micError: string | null
   onToggleMic: () => void
+  /** When true, mic toggle is disabled (e.g. Chords mode: mic cannot detect polyphonic input) */
+  micDisabled?: boolean
   midiConnected?: boolean
   midiDeviceName?: string | null
   midiError?: string | null
@@ -35,7 +37,7 @@ function midiNoteToKeyId(midiNote: number): string {
   return `${noteName}${octave}`
 }
 
-export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, midiConnected, midiDeviceName, midiError, activeMidiNote }: PianoKeyboardProps) {
+export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, micDisabled, midiConnected, midiDeviceName, midiError, activeMidiNote }: PianoKeyboardProps) {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set()) // マルチタッチ対応: 全アクティブkeyId
   const pointerKeyMapRef = useRef<Map<number, { keyId: string; note: NoteName }>>(new Map())
   const containerRef = useRef<HTMLDivElement>(null)
@@ -211,18 +213,25 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           <span className="text-red-400 text-[9px]">{midiError}</span>
         ) : null}
 
-        {/* Mic toggle */}
+        {/* Mic toggle - disabled in Chords mode (mic cannot detect polyphonic chords) */}
         <button
-          onClick={onToggleMic}
+          onClick={micDisabled ? undefined : onToggleMic}
+          disabled={micDisabled}
           className={`text-[9px] px-3 py-1 rounded border ${
-            micEnabled
-              ? 'border-green-400/60 text-green-300 bg-green-500/15'
-              : 'border-slate-500 text-slate-400 bg-slate-800/60'
+            micDisabled
+              ? 'border-slate-600 text-slate-500 bg-slate-800/40 cursor-not-allowed opacity-50'
+              : micEnabled
+                ? 'border-green-400/60 text-green-300 bg-green-500/15'
+                : 'border-slate-500 text-slate-400 bg-slate-800/60'
           }`}
+          title={micDisabled ? 'Mic unsupported for Chords mode (polyphonic detection not possible)' : undefined}
         >
-          MIC {micEnabled ? 'ON' : 'OFF'}
+          MIC {micDisabled ? 'N/A' : micEnabled ? 'ON' : 'OFF'}
         </button>
-        {micError && (
+        {micDisabled && (
+          <span className="text-slate-500 text-[8px]">Chords: MIDI/Key only</span>
+        )}
+        {!micDisabled && micError && (
           <span className="text-red-400 text-[9px]">{micError}</span>
         )}
       </div>

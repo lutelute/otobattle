@@ -35,7 +35,9 @@ export function GameCanvas() {
   const isPlaying = hud.phase === 'playing' || hud.phase === 'waveAnnounce'
 
   useKeyboardInput(inputRef, isPlaying)
-  const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying, hud.settings.instrument)
+  // Disable mic auto-start in Chords mode (mic cannot detect polyphonic chords)
+  const isChordsMode = hud.mode === 'chords'
+  const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying && !isChordsMode, hud.settings.instrument)
   const { midiConnected, midiDeviceName, midiError, activeMidiNote } = useMidiInput(inputRef, isPlaying)
 
   // Mode selection state (difficulty & note range are chosen before starting a game)
@@ -151,6 +153,7 @@ export function GameCanvas() {
           micEnabled={micEnabled}
           micError={micError}
           onToggleMic={() => micEnabled ? disableMic() : enableMic()}
+          micDisabled={isChordsMode}
           midiConnected={midiConnected}
           midiDeviceName={midiDeviceName}
           midiError={midiError}
