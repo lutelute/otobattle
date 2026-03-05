@@ -1,4 +1,6 @@
 import type { GameMode } from '../game/types'
+import type { ProgressionData } from '../game/progression'
+import { ProgressionDisplay } from './ProgressionDisplay'
 
 interface ModeCardInfo {
   mode: GameMode
@@ -44,10 +46,12 @@ interface ModeSelectScreenProps {
   onSelectMode: (mode: GameMode) => void
   onBack: () => void
   playerLevel: number
+  progressionData?: ProgressionData
+  modeBestScores?: Partial<Record<GameMode, number>>
   children?: React.ReactNode
 }
 
-export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLevel, children }: ModeSelectScreenProps) {
+export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLevel, progressionData, modeBestScores, children }: ModeSelectScreenProps) {
   // All modes unlocked for MVP; lock system will be added in Phase 8
   const isUnlocked = (_mode: GameMode) => true
 
@@ -74,6 +78,16 @@ export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLev
           HOME
         </button>
       </div>
+
+      {/* Progression display */}
+      {progressionData && (
+        <div className="w-full max-w-2xl px-4 mt-3">
+          <ProgressionDisplay
+            progressionData={progressionData}
+            modeBestScores={modeBestScores ?? {}}
+          />
+        </div>
+      )}
 
       {/* Title */}
       <div className="text-center mt-4 mb-6">
@@ -149,6 +163,19 @@ export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLev
               >
                 {card.description}
               </p>
+
+              {/* Per-mode best score */}
+              {unlocked && modeBestScores && modeBestScores[card.mode] != null && (
+                <p
+                  className="text-[8px] mt-2 tracking-wide"
+                  style={{
+                    color: '#fbbf24',
+                    textShadow: '0 0 6px rgba(251,191,36,0.2)',
+                  }}
+                >
+                  BEST: {modeBestScores[card.mode]!.toLocaleString()}
+                </p>
+              )}
             </button>
           )
         })}

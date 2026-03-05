@@ -15,7 +15,9 @@ import type { DifficultyPreset } from './DifficultyPanel'
 import { MidiFileUpload } from './MidiFileUpload'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
-import { saveBestScore } from '../utils/storage'
+import { saveBestScore, loadProgression, saveProgression, saveModeBestScore, getAllModeBestScores } from '../utils/storage'
+import { calculateXP, addXP } from '../game/progression'
+import type { ProgressionData } from '../game/progression'
 import { setSmuflReady } from '../game/renderer'
 import type { GameMode, NoteRangeConfig } from '../game/types'
 import { requestReplay } from '../game/modes/perfectPitch'
@@ -43,6 +45,15 @@ export function GameCanvas() {
   const isChordsMode = hud.mode === 'chords'
   const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying && !isChordsMode, hud.settings.instrument)
   const { midiConnected, midiDeviceName, midiError, activeMidiNote } = useMidiInput(inputRef, isPlaying)
+
+  // Progression state: loaded from localStorage on mount
+  const [progression, setProgression] = useState<ProgressionData>(() => loadProgression())
+  const [modeBestScores, setModeBestScores] = useState(() => getAllModeBestScores())
+
+  // Game-over XP results (set when game ends, consumed by GameOverScreen)
+  const [xpGained, setXpGained] = useState(0)
+  const [leveledUp, setLeveledUp] = useState(false)
+  const [newLevel, setNewLevel] = useState(0)
 
   // Mode selection state (difficulty & note range are chosen before starting a game)
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPreset>('normal')
@@ -121,6 +132,19 @@ export function GameCanvas() {
   if (hud.phase === 'gameover' && prevPhaseRef.current !== 'gameover') {
     playGameOverSound()
     saveBestScore(hud.score)
+
+    // Calculate XP and update progression
+    const currentMode = stateRef.current.mode ?? 'noteFrenzy'
+    const earned = calculateXP(hud.score, hud.wave, currentMode)
+    const prevLevel = progression.level
+    const updated = addXP(progression, earned)
+    saveProgression(updated)
+    saveModeBestScore(currentMode, hud.score)
+    setProgression(updated)
+    setModeBestScores(getAllModeBestScores())
+    setXpGained(earned)
+    setLeveledUp(updated.level > prevLevel)
+    setNewLevel(updated.level)
   }
   if (hud.wave > prevWaveRef.current) {
     playWaveStartSound()
@@ -177,7 +201,9 @@ export function GameCanvas() {
           <ModeSelectScreen
             onSelectMode={handleSelectMode}
             onBack={goToTitle}
-            playerLevel={1}
+            playerLevel={progression.level}
+            progressionData={progression}
+            modeBestScores={modeBestScores}
           >
             <DifficultyPanel
               difficulty={selectedDifficulty}
@@ -196,7 +222,15 @@ export function GameCanvas() {
         )}
 
         {hud.phase === 'gameover' && (
-          <GameOverScreen score={hud.score} wave={hud.wave} onRestart={handleRestart} onHome={goToTitle} />
+          <GameOverScreen
+            score={hud.score}
+            wave={hud.wave}
+            onRestart={handleRestart}
+            onHome={goToTitle}
+            xpGained={xpGained}
+            leveledUp={leveledUp}
+            newLevel={newLevel}
+          />
         )}
       </div>
 
