@@ -1,7 +1,7 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
 import { NOTES, getStaffPlacement } from './notes'
-import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS } from './constants'
-import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef } from './musicGlyphs'
+import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS, BEAM_ZIGZAG_AMPLITUDE, BEAM_ZIGZAG_SEGMENTS, BEAM_LIGHTNING_SEGMENTS } from './constants'
+import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef, drawAltoClef } from './musicGlyphs'
 
 let smuflReady = false
 export function setSmuflReady(ready: boolean) { smuflReady = ready }
@@ -9,17 +9,20 @@ export function setSmuflReady(ready: boolean) { smuflReady = ready }
 // SMuFL codepoints
 const SMUFL_TREBLE_CLEF = '\uE050'
 const SMUFL_BASS_CLEF = '\uE062'
+const SMUFL_ALTO_CLEF = '\uE05C'
 
 // テーマカラー
 function themeColors(theme: DisplaySettings['theme']) {
   if (theme === 'light') {
     return {
-      bg: '#f0f0f0',
-      grid: '#00000008',
+      bgTop: '#e8e8f0',
+      bgBottom: '#f5f5f5',
+      grid: '#00000010',
       player: '#e94560',
       playerInv: '#e9456080',
       panelBg: '#ffffffee',
-      panelBorder: '#00000020',
+      panelBorder: '#00000028',
+      panelShadow: '#00000015',
       staffLine: '#00000050',
       noteColor: '#000000',
       clefColor: '#000000c0',
@@ -27,22 +30,26 @@ function themeColors(theme: DisplaySettings['theme']) {
       waveText: '#d97706',
       damageFlash: '#ff000030',
       attackWave: '#000000',
+      beamCore: '#333333',
     }
   }
   return {
-    bg: '#1a1a2e',
-    grid: '#ffffff08',
+    bgTop: '#0f0f23',
+    bgBottom: '#1a1a2e',
+    grid: '#ffffff14',
     player: '#e94560',
     playerInv: '#e9456080',
-    panelBg: '#ffffffee',
-    panelBorder: '#00000015',
-    staffLine: '#00000050',
+    panelBg: '#f8fafcf0',
+    panelBorder: '#00000030',
+    panelShadow: '#00000050',
+    staffLine: '#00000058',
     noteColor: '#000000',
     clefColor: '#000000c0',
-    labelColor: '#444',
+    labelColor: '#94a3b8',
     waveText: '#fbbf24',
     damageFlash: '#ff000030',
     attackWave: '#ffffff',
+    beamCore: '#ffffff',
   }
 }
 
@@ -65,8 +72,11 @@ export function render(
   ctx.translate(offsetX, offsetY)
   ctx.scale(scale, scale)
 
-  // 背景
-  ctx.fillStyle = c.bg
+  // 背景（グラデーション）
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_BASE_HEIGHT)
+  bgGrad.addColorStop(0, c.bgTop)
+  bgGrad.addColorStop(1, c.bgBottom)
+  ctx.fillStyle = bgGrad
   ctx.fillRect(0, 0, CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT)
   ctx.strokeStyle = c.grid
   ctx.lineWidth = 1
@@ -85,7 +95,7 @@ export function render(
 
   // ビーム描画
   for (const beam of state.beams) {
-    drawBeam(ctx, beam)
+    drawBeam(ctx, beam, c.beamCore)
   }
 
   drawPlayer(ctx, state, c)
@@ -164,8 +174,6 @@ function drawEnemy(
   const noteInfo = NOTES[enemy.note]
   const placement = getStaffPlacement(enemy.note, enemy.clef)
   const { pos, radius } = enemy
-  const isBass = enemy.clef === 'bass'
-
   ctx.save()
   ctx.translate(pos.x, pos.y)
 
@@ -183,12 +191,18 @@ function drawEnemy(
   const panelH = staffH + padTop + padBot    // 合計 92px
   const panelTop = -panelH / 2               // 敵の中心を基準にパネルを配置
 
-  // パネル背景
+  // パネル背景（影付き）
+  ctx.save()
+  ctx.shadowColor = c.panelShadow
+  ctx.shadowBlur = 8
+  ctx.shadowOffsetY = 2
   ctx.fillStyle = c.panelBg
+  roundRect(ctx, -staffW / 2, panelTop, staffW, panelH, 6)
+  ctx.fill()
+  ctx.restore()
   ctx.strokeStyle = c.panelBorder
   ctx.lineWidth = 1
   roundRect(ctx, -staffW / 2, panelTop, staffW, panelH, 6)
-  ctx.fill()
   ctx.stroke()
 
   const staffTop = panelTop + padTop
@@ -205,7 +219,7 @@ function drawEnemy(
     ctx.stroke()
   }
 
-  // ── 記号（ト音記号 / ヘ音記号）──
+  // ── 記号（ト音記号 / ヘ音記号 / ハ音記号）──
   const clefX = -staffW / 2 + 16
 
   if (smuflReady) {
@@ -215,18 +229,24 @@ function drawEnemy(
     ctx.font = `${lineGap * 4}px Bravura`
     ctx.textBaseline = 'alphabetic'
 
-    if (isBass) {
+    if (enemy.clef === 'bass') {
       const f3LineY = staffTop + 1 * lineGap
       ctx.fillText(SMUFL_BASS_CLEF, clefX, f3LineY)
+    } else if (enemy.clef === 'alto') {
+      const c4LineY = staffTop + 2 * lineGap
+      ctx.fillText(SMUFL_ALTO_CLEF, clefX, c4LineY)
     } else {
       const g4LineY = staffTop + 3 * lineGap
       ctx.fillText(SMUFL_TREBLE_CLEF, clefX, g4LineY)
     }
   } else {
     // フォールバック: Canvas パス描画
-    if (isBass) {
+    if (enemy.clef === 'bass') {
       const f3LineY = staffTop + 1 * lineGap
       drawBassClef(ctx, clefX, f3LineY, staffH, c.clefColor)
+    } else if (enemy.clef === 'alto') {
+      const c4LineY = staffTop + 2 * lineGap
+      drawAltoClef(ctx, clefX, c4LineY, staffH, c.clefColor)
     } else {
       const g4LineY = staffTop + 3 * lineGap
       drawTrebleClef(ctx, clefX, g4LineY, staffH, c.clefColor)
@@ -240,8 +260,11 @@ function drawEnemy(
 
   // 加線
   if (placement.needsLedger) {
-    if (isBass) {
+    if (enemy.clef === 'bass') {
       // ヘ音記号: B3は第5線の上 → 加線は staffTop - lineGap
+      drawLedgerLine(ctx, noteX, staffTop - lineGap, 22, c.staffLine)
+    } else if (enemy.clef === 'alto') {
+      // ハ音記号: A4/B4は第5線の上 → 加線は staffTop - lineGap
       drawLedgerLine(ctx, noteX, staffTop - lineGap, 22, c.staffLine)
     } else {
       // ト音記号: C4は第1線の下 → 加線は staffBottom + lineGap
@@ -279,33 +302,98 @@ function drawEnemy(
   ctx.restore()
 }
 
-function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam) {
+/**
+ * ビームパスのポイント列を生成する
+ * straight: 始点→終点の直線
+ * zigzag: 交互に垂直方向へオフセットするセグメント
+ * lightning: より少ないセグメントで大きなランダムオフセット
+ */
+function generateBeamPath(beam: import('./types').Beam): { x: number; y: number }[] {
+  const style = beam.style ?? 'straight'
+
+  if (style === 'straight') {
+    return [beam.from, beam.to]
+  }
+
+  const dx = beam.to.x - beam.from.x
+  const dy = beam.to.y - beam.from.y
+  const len = Math.sqrt(dx * dx + dy * dy)
+  if (len === 0) return [beam.from, beam.to]
+
+  // 垂直方向の単位ベクトル
+  const perpX = -dy / len
+  const perpY = dx / len
+
+  const segments = style === 'zigzag' ? BEAM_ZIGZAG_SEGMENTS : BEAM_LIGHTNING_SEGMENTS
+  const amplitude = style === 'zigzag' ? BEAM_ZIGZAG_AMPLITUDE : BEAM_ZIGZAG_AMPLITUDE * 2.5
+
+  const points: { x: number; y: number }[] = [{ x: beam.from.x, y: beam.from.y }]
+
+  // ビーム位置ベースのシード値（同じビームは同じパスを描く）
+  const seed = Math.abs(beam.from.x * 73 + beam.from.y * 137 + beam.to.x * 59 + beam.to.y * 97)
+
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments
+    const baseX = beam.from.x + dx * t
+    const baseY = beam.from.y + dy * t
+
+    let offset: number
+    if (style === 'zigzag') {
+      // 均一な交互オフセット
+      offset = (i % 2 === 0 ? 1 : -1) * amplitude
+    } else {
+      // lightning: 疑似ランダムオフセット（大きめ）
+      const pseudoRandom = Math.sin(seed + i * 12.9898) * 43758.5453
+      offset = (pseudoRandom - Math.floor(pseudoRandom) - 0.5) * 2 * amplitude
+    }
+
+    points.push({
+      x: baseX + perpX * offset,
+      y: baseY + perpY * offset,
+    })
+  }
+
+  points.push({ x: beam.to.x, y: beam.to.y })
+  return points
+}
+
+/** ポイント列を結ぶパスをストロークする */
+function strokeBeamPath(ctx: CanvasRenderingContext2D, points: { x: number; y: number }[]) {
+  if (points.length === 0) return
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y)
+  }
+  ctx.stroke()
+}
+
+function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam, coreColor: string) {
   const alpha = beam.life / beam.maxLife
+  const points = generateBeamPath(beam)
+
   ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
   // 太いグロー
   ctx.globalAlpha = alpha * 0.3
   ctx.strokeStyle = beam.color
   ctx.lineWidth = 8
-  ctx.beginPath()
-  ctx.moveTo(beam.from.x, beam.from.y)
-  ctx.lineTo(beam.to.x, beam.to.y)
-  ctx.stroke()
-  // 細いコア
+  strokeBeamPath(ctx, points)
+
+  // 細いコア（テーマ対応）
   ctx.globalAlpha = alpha * 0.9
-  ctx.strokeStyle = '#ffffff'
+  ctx.strokeStyle = coreColor
   ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(beam.from.x, beam.from.y)
-  ctx.lineTo(beam.to.x, beam.to.y)
-  ctx.stroke()
+  strokeBeamPath(ctx, points)
+
   // 中間色
   ctx.globalAlpha = alpha * 0.7
   ctx.strokeStyle = beam.color
   ctx.lineWidth = 4
-  ctx.beginPath()
-  ctx.moveTo(beam.from.x, beam.from.y)
-  ctx.lineTo(beam.to.x, beam.to.y)
-  ctx.stroke()
+  strokeBeamPath(ctx, points)
+
   ctx.restore()
 }
 

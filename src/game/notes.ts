@@ -15,6 +15,12 @@ import type { NoteName, NoteInfo, ClefType } from './types'
  *   同じ音名をオクターブ3(C3-B3)として表示:
  *   C3 = step 3, D3 = step 4, E3 = step 5, F3 = step 6,
  *   G3 = step 7, A3 = step 8(top line), B3 = step 9(加線上)
+ *
+ * ── ハ音記号（アルト） ──
+ *   第1線 = F3,  第2線 = A3,  第3線 = C4(中央C),  第4線 = E4,  第5線 = G4
+ *   同じ音名をオクターブ4(C4-B4)として表示:
+ *   C4 = step 4(第3線), D4 = step 5, E4 = step 6, F4 = step 7,
+ *   G4 = step 8(top line), A4 = step 9(加線上), B4 = step 10(加線上)
  */
 
 export interface StaffPlacement {
@@ -55,9 +61,27 @@ export const BASS_STAFF_PLACEMENT: Record<NoteName, StaffPlacement> = {
   'B':  { steps:  9, onLine: false, needsLedger: true  },  // 加線上（第5線の上）
 }
 
+/** ハ音記号（アルト）: C4-B4 として表示（C4が第3線） */
+export const ALTO_STAFF_PLACEMENT: Record<NoteName, StaffPlacement> = {
+  'C':  { steps:  4, onLine: true,  needsLedger: false },  // 第3線（中央C）
+  'C#': { steps:  4, onLine: true,  needsLedger: false },
+  'D':  { steps:  5, onLine: false, needsLedger: false },  // 第3間
+  'D#': { steps:  5, onLine: false, needsLedger: false },
+  'E':  { steps:  6, onLine: true,  needsLedger: false },  // 第4線
+  'F':  { steps:  7, onLine: false, needsLedger: false },  // 第4間
+  'F#': { steps:  7, onLine: false, needsLedger: false },
+  'G':  { steps:  8, onLine: true,  needsLedger: false },  // 第5線（最上線）
+  'G#': { steps:  8, onLine: true,  needsLedger: false },
+  'A':  { steps:  9, onLine: false, needsLedger: true  },  // 加線上（第5線の上）
+  'A#': { steps:  9, onLine: false, needsLedger: true  },
+  'B':  { steps: 10, onLine: true,  needsLedger: true  },  // 加線上（第5線の上の線）
+}
+
 /** 記号に応じた配置を返す */
 export function getStaffPlacement(note: NoteName, clef: ClefType): StaffPlacement {
-  return clef === 'bass' ? BASS_STAFF_PLACEMENT[note] : TREBLE_STAFF_PLACEMENT[note]
+  if (clef === 'alto') return ALTO_STAFF_PLACEMENT[note]
+  if (clef === 'bass') return BASS_STAFF_PLACEMENT[note]
+  return TREBLE_STAFF_PLACEMENT[note]
 }
 
 // 後方互換（既存コードがSTAFF_PLACEMENTを参照している場合）

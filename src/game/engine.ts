@@ -1,4 +1,4 @@
-import type { GameState, GameInput, DisplaySettings } from './types'
+import type { GameState, GameInput, DisplaySettings, BeamStyle } from './types'
 import {
   PLAYER_MAX_HP, CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT,
   ENEMY_BASE_SPEED, ENEMY_SPEED_INCREMENT,
@@ -74,6 +74,7 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
 
       // ビーム生成: プレイヤー → 撃破位置
       const beamColor = COLORS.noteColors[input.activeNote]
+      const beamStyle: BeamStyle = state.combo >= 5 ? 'lightning' : state.combo >= 3 ? 'zigzag' : 'straight'
       for (const pos of hitPositions) {
         state.beams.push({
           from: { x: state.player.pos.x, y: state.player.pos.y },
@@ -81,6 +82,7 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
           color: beamColor,
           life: BEAM_LIFE,
           maxLife: BEAM_LIFE,
+          style: beamStyle,
         })
       }
 

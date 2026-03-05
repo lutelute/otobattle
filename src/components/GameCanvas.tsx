@@ -32,7 +32,7 @@ export function GameCanvas() {
 
   useKeyboardInput(inputRef, isPlaying)
   const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying, hud.settings.instrument)
-  const { midiConnected, midiDeviceName, midiError } = useMidiInput(inputRef, isPlaying)
+  const { midiConnected, midiDeviceName, midiError, activeMidiNote } = useMidiInput(inputRef, isPlaying)
 
   const handleRestart = useCallback(async () => {
     await ensureAudioContext()
@@ -113,6 +113,7 @@ export function GameCanvas() {
           midiConnected={midiConnected}
           midiDeviceName={midiDeviceName}
           midiError={midiError}
+          activeMidiNote={activeMidiNote}
         />
       )}
     </div>

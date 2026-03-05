@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { GameInput, NoteName } from '../game/types'
+import { ALL_NOTE_NAMES } from '../game/notes'
 
 interface PianoKeyboardProps {
   inputRef: React.MutableRefObject<GameInput>
@@ -9,6 +10,7 @@ interface PianoKeyboardProps {
   midiConnected?: boolean
   midiDeviceName?: string | null
   midiError?: string | null
+  activeMidiNote?: number | null
 }
 
 // 1オクターブの白鍵ノート名（順番）
@@ -26,9 +28,19 @@ const OCTAVES = 4            // 4オクターブ
 const OCTAVE_START = 2       // C2から開始
 const TOTAL_WHITE_KEYS = WHITE_NOTES.length * OCTAVES  // 28
 
-export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, midiConnected, midiDeviceName, midiError }: PianoKeyboardProps) {
+/** MIDIノート番号をkeyId形式 'note+octave' に変換 (60=C4, 61=C#4, etc.) */
+function midiNoteToKeyId(midiNote: number): string {
+  const noteName = ALL_NOTE_NAMES[midiNote % 12]
+  const octave = Math.floor(midiNote / 12) - 1
+  return `${noteName}${octave}`
+}
+
+export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, midiConnected, midiDeviceName, midiError, activeMidiNote }: PianoKeyboardProps) {
   const [activeKey, setActiveKey] = useState<string | null>(null) // "note-octave" で一意識別
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // MIDIノート番号からkeyId形式に変換してハイライト対象を決定
+  const midiKeyId = activeMidiNote != null ? midiNoteToKeyId(activeMidiNote) : null
 
   const handlePointerDown = (note: NoteName, keyId: string) => {
     inputRef.current = { activeNote: note, source: 'piano' }
@@ -69,14 +81,14 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
   }
 
   return (
-    <div className="bg-[#0a0a14] select-none flex flex-col">
+    <div className="bg-[#0f0f23] select-none flex flex-col">
       {/* Piano */}
       <div
         ref={containerRef}
         style={{
           padding: '3px 2px 2px',
-          background: 'linear-gradient(180deg, #2a1a0e 0%, #1a0f08 100%)',
-          borderTop: '3px solid #3d2414',
+          background: 'linear-gradient(180deg, #3d2414 0%, #2a1a0e 60%, #1a0f08 100%)',
+          borderTop: '3px solid #5a3520',
         }}
       >
         <div className="relative" style={{ height: '110px' }}>
@@ -84,7 +96,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           <div className="flex h-full">
             {whiteKeys.map(({ note, octave }) => {
               const keyId = `${note}${octave}`
-              const isActive = activeKey === keyId
+              const isActive = activeKey === keyId || midiKeyId === keyId
               const isC4Octave = octave === 4
               // C4オクターブの鍵盤は少しハイライト
               const highlight = isC4Octave
@@ -101,13 +113,13 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
                     border: 'none',
                     cursor: 'pointer',
                     background: isActive
-                      ? 'linear-gradient(180deg, #bbb 0%, #999 100%)'
+                      ? 'linear-gradient(180deg, #e94560 0%, #c73a52 100%)'
                       : highlight
                         ? 'linear-gradient(180deg, #fffff0 0%, #f8f8ee 70%, #eeeede 90%, #ddddc8 100%)'
-                        : 'linear-gradient(180deg, #fff 0%, #f5f5f5 70%, #e8e8e8 90%, #ddd 100%)',
+                        : 'linear-gradient(180deg, #f8f8f8 0%, #efefef 70%, #e0e0e0 90%, #d4d4d4 100%)',
                     boxShadow: isActive
-                      ? 'inset 0 2px 6px rgba(0,0,0,0.25), 0 1px 0 #555'
-                      : 'inset 0 -3px 4px rgba(0,0,0,0.06), 0 2px 0 #888, -0.5px 0 0 #bbb, 0.5px 0 0 #bbb',
+                      ? 'inset 0 2px 6px rgba(0,0,0,0.3), 0 0 8px rgba(233,69,96,0.4)'
+                      : 'inset 0 -3px 4px rgba(0,0,0,0.08), 0 2px 0 #999, -0.5px 0 0 #ccc, 0.5px 0 0 #ccc',
                     transform: isActive ? 'translateY(2px)' : 'translateY(0)',
                     transition: 'transform 50ms, box-shadow 50ms',
                     zIndex: 1,
@@ -123,7 +135,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
                       <div style={{
                         fontFamily: 'var(--pixel-font)',
                         fontSize: '7px',
-                        color: isC4Octave ? '#e94560' : '#aaa',
+                        color: isActive ? '#fff' : isC4Octave ? '#e94560' : '#888',
                       }}>
                         C{octave}
                       </div>
@@ -137,7 +149,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           {/* Black keys */}
           {blackKeys.map(({ note, octave, globalWhiteIdx }) => {
             const keyId = `${note}${octave}`
-            const isActive = activeKey === keyId
+            const isActive = activeKey === keyId || midiKeyId === keyId
             const leftPct = (globalWhiteIdx + 1) * whiteKeyWidthPct - whiteKeyWidthPct * 0.3
             const widthPct = whiteKeyWidthPct * 0.6
 
@@ -153,11 +165,11 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
                   border: 'none',
                   cursor: 'pointer',
                   background: isActive
-                    ? 'linear-gradient(180deg, #444 0%, #222 100%)'
-                    : 'linear-gradient(180deg, #333 0%, #111 85%, #000 100%)',
+                    ? 'linear-gradient(180deg, #e94560 0%, #a83248 100%)'
+                    : 'linear-gradient(180deg, #3a3a3a 0%, #1a1a1a 85%, #0a0a0a 100%)',
                   boxShadow: isActive
-                    ? 'inset 0 2px 4px rgba(0,0,0,0.5), 0 1px 0 #222'
-                    : 'inset 0 -2px 3px rgba(255,255,255,0.05), 0 2px 0 #000, -0.5px 0 0 #222, 0.5px 0 0 #222',
+                    ? 'inset 0 2px 4px rgba(0,0,0,0.5), 0 0 6px rgba(233,69,96,0.5)'
+                    : 'inset 0 -2px 3px rgba(255,255,255,0.08), 0 2px 0 #000, -0.5px 0 0 #2a2a2a, 0.5px 0 0 #2a2a2a',
                   transform: isActive ? 'translateY(2px)' : 'translateY(0)',
                   transition: 'transform 50ms, box-shadow 50ms',
                   zIndex: 2,
@@ -173,14 +185,14 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
       </div>
 
       {/* Input status bar */}
-      <div className="flex justify-center items-center gap-3 py-1.5 bg-[#0a0a14] flex-wrap" style={{ fontFamily: 'var(--pixel-font)' }}>
+      <div className="flex justify-center items-center gap-3 py-1.5 bg-[#0f0f23] flex-wrap" style={{ fontFamily: 'var(--pixel-font)' }}>
         {/* MIDI status */}
         {midiConnected ? (
-          <span className="text-[9px] px-3 py-1 rounded border border-blue-500 text-blue-400 bg-blue-500/10">
+          <span className="text-[9px] px-3 py-1 rounded border border-blue-400/60 text-blue-300 bg-blue-500/15">
             MIDI: {midiDeviceName ?? 'Connected'}
           </span>
         ) : midiError ? (
-          <span className="text-red-400 text-[8px]">{midiError}</span>
+          <span className="text-red-400 text-[9px]">{midiError}</span>
         ) : null}
 
         {/* Mic toggle */}
@@ -188,14 +200,14 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           onClick={onToggleMic}
           className={`text-[9px] px-3 py-1 rounded border ${
             micEnabled
-              ? 'border-green-500 text-green-400 bg-green-500/10'
-              : 'border-gray-600 text-gray-400 bg-gray-800'
+              ? 'border-green-400/60 text-green-300 bg-green-500/15'
+              : 'border-slate-500 text-slate-400 bg-slate-800/60'
           }`}
         >
           MIC {micEnabled ? 'ON' : 'OFF'}
         </button>
         {micError && (
-          <span className="text-red-400 text-[8px]">{micError}</span>
+          <span className="text-red-400 text-[9px]">{micError}</span>
         )}
       </div>
     </div>

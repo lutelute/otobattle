@@ -22,6 +22,7 @@ export function useMidiInput(
   const [midiConnected, setMidiConnected] = useState(false)
   const [midiDeviceName, setMidiDeviceName] = useState<string | null>(null)
   const [midiError, setMidiError] = useState<string | null>(null)
+  const [activeMidiNote, setActiveMidiNote] = useState<number | null>(null)
   const midiAccessRef = useRef<MIDIAccess | null>(null)
   const activeNotesRef = useRef<Set<number>>(new Set())
 
@@ -44,16 +45,19 @@ export function useMidiInput(
       activeNotesRef.current.add(note)
       const noteName = midiNoteToName(note)
       inputRef.current = { activeNote: noteName, source: 'midi' }
+      setActiveMidiNote(note)
     } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
       // Note Off
       activeNotesRef.current.delete(note)
       if (activeNotesRef.current.size === 0) {
         inputRef.current = { activeNote: null, source: null }
+        setActiveMidiNote(null)
       } else {
         // 他のキーがまだ押されていたら最後に押されたキーを有効に
         const remaining = Array.from(activeNotesRef.current)
         const lastNote = remaining[remaining.length - 1]
         inputRef.current = { activeNote: midiNoteToName(lastNote), source: 'midi' }
+        setActiveMidiNote(lastNote)
       }
     }
   }, [inputRef, enabled])
@@ -104,6 +108,7 @@ export function useMidiInput(
       })
     }
     activeNotesRef.current.clear()
+    setActiveMidiNote(null)
     setMidiConnected(false)
     setMidiDeviceName(null)
   }, [])
@@ -127,6 +132,7 @@ export function useMidiInput(
     midiConnected,
     midiDeviceName,
     midiError,
+    activeMidiNote,
     connectMidi,
     disconnectMidi,
   }

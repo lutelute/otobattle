@@ -14,7 +14,7 @@ export interface NoteInfo {
 }
 
 /** 記号タイプ */
-export type ClefType = 'treble' | 'bass'
+export type ClefType = 'treble' | 'bass' | 'alto'
 
 /** 敵タイプ */
 export type EnemyType = 'normal' | 'invader'
@@ -53,12 +53,16 @@ export interface Particle {
   size: number
 }
 
+/** ビームスタイル */
+export type BeamStyle = 'straight' | 'zigzag' | 'lightning'
+
 export interface Beam {
   from: Vec2
   to: Vec2
   color: string
   life: number
   maxLife: number
+  style?: BeamStyle
 }
 
 export interface Player {

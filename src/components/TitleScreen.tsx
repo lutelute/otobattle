@@ -17,14 +17,48 @@ export function TitleScreen({ onStart, instrument, onChangeInstrument }: TitleSc
   }
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#1a1a2e] z-10" style={{ fontFamily: 'var(--pixel-font)' }}>
-      <h1 className="text-4xl text-red-400 mb-2 tracking-wider">OtoBattle</h1>
-      <p className="text-sm text-gray-400 mb-6">音楽 × サバイバル</p>
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center z-10"
+      style={{
+        fontFamily: 'var(--pixel-font)',
+        background: 'linear-gradient(180deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%)',
+      }}
+    >
+      {/* Title block */}
+      <div className="text-center mb-8">
+        <h1
+          className="text-5xl tracking-wider mb-3"
+          style={{
+            color: '#e94560',
+            textShadow: '0 0 20px rgba(233,69,96,0.4), 0 2px 4px rgba(0,0,0,0.5)',
+          }}
+        >
+          OtoBattle
+        </h1>
+        <p
+          className="text-sm tracking-widest"
+          style={{ color: '#94a3b8', textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
+        >
+          音楽 × サバイバル
+        </p>
+      </div>
 
-      {/* 楽器選択 */}
-      <div className="mb-6">
-        <p className="text-[10px] text-gray-500 text-center mb-3">楽器を選択</p>
-        <div className="flex flex-wrap justify-center gap-2 max-w-sm">
+      {/* Instrument selection panel */}
+      <div
+        className="mb-8 rounded-xl px-5 py-4 w-80 max-w-[90vw]"
+        style={{
+          background: 'rgba(0,0,0,0.4)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          backdropFilter: 'blur(4px)',
+        }}
+      >
+        <p
+          className="text-[10px] text-center mb-3 tracking-wide"
+          style={{ color: '#94a3b8' }}
+        >
+          楽器を選択
+        </p>
+        <div className="grid grid-cols-3 gap-2">
           {INSTRUMENT_ORDER.map((inst) => {
             const profile = INSTRUMENT_PROFILES[inst]
             const isSelected = instrument === inst
@@ -32,11 +66,13 @@ export function TitleScreen({ onStart, instrument, onChangeInstrument }: TitleSc
               <button
                 key={inst}
                 onClick={() => onChangeInstrument(inst)}
-                className={`px-3 py-2 text-[10px] rounded border transition-all ${
-                  isSelected
-                    ? 'border-red-400 text-red-400 bg-red-500/15'
-                    : 'border-gray-600 text-gray-400 bg-gray-800/50 hover:border-gray-400'
-                }`}
+                className="py-2 text-[10px] rounded-lg transition-all"
+                style={{
+                  background: isSelected ? 'rgba(233,69,96,0.15)' : 'rgba(255,255,255,0.05)',
+                  border: `1px solid ${isSelected ? 'rgba(233,69,96,0.6)' : 'rgba(255,255,255,0.08)'}`,
+                  color: isSelected ? '#e94560' : '#94a3b8',
+                  textShadow: isSelected ? '0 0 8px rgba(233,69,96,0.3)' : 'none',
+                }}
               >
                 {profile.label}
               </button>
@@ -45,17 +81,38 @@ export function TitleScreen({ onStart, instrument, onChangeInstrument }: TitleSc
         </div>
       </div>
 
+      {/* START button */}
       <button
         onClick={handleStart}
-        className="px-10 py-3 bg-red-500 text-white text-sm rounded hover:bg-red-600 active:scale-95 transition-all mb-8"
+        className="px-12 py-3.5 text-sm rounded-lg transition-all active:scale-95 mb-10"
+        style={{
+          background: 'linear-gradient(135deg, #e94560 0%, #c73a52 100%)',
+          color: '#ffffff',
+          border: '1px solid rgba(255,255,255,0.15)',
+          boxShadow: '0 4px 15px rgba(233,69,96,0.35), 0 1px 3px rgba(0,0,0,0.3)',
+          textShadow: '0 1px 2px rgba(0,0,0,0.3)',
+        }}
       >
         START
       </button>
 
-      <div className="text-[9px] text-gray-500 leading-5 text-center max-w-xs">
-        <p>敵の音符を見て、正しい音を鳴らせ！</p>
-        <p className="mt-2">MIDIキーボード / マイク / タッチピアノ</p>
-        <p className="mt-1">PCキーボード: C D E F G A B (Shift=♯)</p>
+      {/* Instructions */}
+      <div
+        className="text-center max-w-xs leading-6 rounded-lg px-4 py-3"
+        style={{
+          background: 'rgba(0,0,0,0.25)',
+          border: '1px solid rgba(255,255,255,0.05)',
+        }}
+      >
+        <p className="text-[9px]" style={{ color: '#94a3b8' }}>
+          敵の音符を見て、正しい音を鳴らせ！
+        </p>
+        <p className="text-[9px] mt-2" style={{ color: '#64748b' }}>
+          MIDIキーボード / マイク / タッチピアノ
+        </p>
+        <p className="text-[9px] mt-1" style={{ color: '#64748b' }}>
+          PCキーボード: C D E F G A B (Shift=♯)
+        </p>
       </div>
     </div>
   )
