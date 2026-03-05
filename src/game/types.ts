@@ -16,6 +16,16 @@ export interface NoteInfo {
 /** 記号タイプ */
 export type ClefType = 'treble' | 'bass'
 
+/** 敵タイプ */
+export type EnemyType = 'normal' | 'invader'
+
+/** インベーダー型敵の状態 */
+export interface InvaderState {
+  rowIndex: number      // 隊列内のインデックス
+  direction: 1 | -1    // 横移動方向（1=右, -1=左）
+  dropTarget: number    // 降下目標Y座標
+}
+
 export interface Enemy {
   id: number
   pos: Vec2
@@ -27,6 +37,8 @@ export interface Enemy {
   spawnTime: number
   hitFlash: number
   shape: EnemyShape   // 個体を区別するための形状
+  enemyType: EnemyType
+  invaderState?: InvaderState
 }
 
 /** 敵の形状バリエーション（同じ音でも形で区別可能） */
@@ -39,6 +51,14 @@ export interface Particle {
   maxLife: number
   color: string
   size: number
+}
+
+export interface Beam {
+  from: Vec2
+  to: Vec2
+  color: string
+  life: number
+  maxLife: number
 }
 
 export interface Player {
@@ -63,6 +83,7 @@ export interface GameState {
   player: Player
   enemies: Enemy[]
   particles: Particle[]
+  beams: Beam[]
   score: number
   wave: number
   waveTimer: number

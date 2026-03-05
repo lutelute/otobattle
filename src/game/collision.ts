@@ -1,17 +1,24 @@
-import type { Enemy, NoteName, Player, Particle } from './types'
+import type { Enemy, NoteName, Player, Particle, Vec2 } from './types'
 import { INVINCIBLE_DURATION, DAMAGE_FLASH_DURATION, PARTICLE_COUNT_PER_KILL, PARTICLE_LIFE, COLORS } from './constants'
 import { randomFloat } from '../utils/math'
+
+export interface AttackResult {
+  kills: number
+  hitPositions: Vec2[]
+}
 
 export function attackWithNote(
   note: NoteName,
   enemies: Enemy[],
   particles: Particle[],
-): number {
+): AttackResult {
   let kills = 0
+  const hitPositions: Vec2[] = []
   for (const e of enemies) {
     if (!e.alive || e.note !== note) continue
     e.alive = false
     kills++
+    hitPositions.push({ x: e.pos.x, y: e.pos.y })
     // Spawn particles
     for (let i = 0; i < PARTICLE_COUNT_PER_KILL; i++) {
       const angle = (Math.PI * 2 * i) / PARTICLE_COUNT_PER_KILL + randomFloat(-0.3, 0.3)
@@ -26,7 +33,7 @@ export function attackWithNote(
       })
     }
   }
-  return kills
+  return { kills, hitPositions }
 }
 
 export function checkEnemyPlayerCollision(

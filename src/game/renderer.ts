@@ -1,6 +1,6 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
 import { NOTES, getStaffPlacement } from './notes'
-import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION } from './constants'
+import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS } from './constants'
 import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef } from './musicGlyphs'
 
 let smuflReady = false
@@ -83,14 +83,20 @@ export function render(
     drawEnemy(ctx, enemy, state, c)
   }
 
+  // ビーム描画
+  for (const beam of state.beams) {
+    drawBeam(ctx, beam)
+  }
+
   drawPlayer(ctx, state, c)
 
   if (state.lastNoteAttack && state.noteAttackTimer > 0) {
     const progress = 1 - state.noteAttackTimer / 0.5
     const r = progress * 200
+    const waveColor = COLORS.noteColors[state.lastNoteAttack] ?? c.attackWave
     ctx.save()
     ctx.globalAlpha = (1 - progress) * 0.3
-    ctx.strokeStyle = c.attackWave
+    ctx.strokeStyle = waveColor
     ctx.lineWidth = 3
     ctx.beginPath()
     ctx.arc(state.player.pos.x, state.player.pos.y, r, 0, Math.PI * 2)
@@ -265,6 +271,41 @@ function drawEnemy(
     ctx.fillText(noteInfo.solfege, 0, panelTop + panelH + 4)
   }
 
+  // ── インベーダーアイコン（パネル上部に表示） ──
+  if (enemy.enemyType === 'invader') {
+    drawInvaderIcon(ctx, 0, panelTop - 12, noteInfo.color)
+  }
+
+  ctx.restore()
+}
+
+function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam) {
+  const alpha = beam.life / beam.maxLife
+  ctx.save()
+  // 太いグロー
+  ctx.globalAlpha = alpha * 0.3
+  ctx.strokeStyle = beam.color
+  ctx.lineWidth = 8
+  ctx.beginPath()
+  ctx.moveTo(beam.from.x, beam.from.y)
+  ctx.lineTo(beam.to.x, beam.to.y)
+  ctx.stroke()
+  // 細いコア
+  ctx.globalAlpha = alpha * 0.9
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(beam.from.x, beam.from.y)
+  ctx.lineTo(beam.to.x, beam.to.y)
+  ctx.stroke()
+  // 中間色
+  ctx.globalAlpha = alpha * 0.7
+  ctx.strokeStyle = beam.color
+  ctx.lineWidth = 4
+  ctx.beginPath()
+  ctx.moveTo(beam.from.x, beam.from.y)
+  ctx.lineTo(beam.to.x, beam.to.y)
+  ctx.stroke()
   ctx.restore()
 }
 
@@ -283,6 +324,33 @@ function roundRect(
   ctx.lineTo(x, y + r)
   ctx.arcTo(x, y, x + r, y, r)
   ctx.closePath()
+}
+
+/** Canvasパスで描くインベーダーシルエット（11x8 ドット, 3px/dot = 33x24px） */
+function drawInvaderIcon(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: string) {
+  const pattern = [
+    [0,0,1,0,0,0,0,0,1,0,0],
+    [0,0,0,1,0,0,0,1,0,0,0],
+    [0,0,1,1,1,1,1,1,1,0,0],
+    [0,1,1,0,1,1,1,0,1,1,0],
+    [1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,1,1,1,1,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,1,0,1],
+    [0,0,0,1,1,0,1,1,0,0,0],
+  ]
+  const px = 3
+  const cols = pattern[0].length
+  const rows = pattern.length
+  const w = cols * px
+  const h = rows * px
+  ctx.fillStyle = color
+  for (let r = 0; r < rows; r++) {
+    for (let col = 0; col < cols; col++) {
+      if (pattern[r][col]) {
+        ctx.fillRect(cx - w / 2 + col * px, cy - h / 2 + r * px, px, px)
+      }
+    }
+  }
 }
 
 function drawParticles(ctx: CanvasRenderingContext2D, state: GameState) {

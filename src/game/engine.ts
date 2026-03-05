@@ -5,6 +5,7 @@ import {
   ENEMIES_BASE_COUNT, ENEMIES_INCREMENT,
   WAVE_ANNOUNCE_DURATION, WAVE_INTERVAL,
   NOTE_ATTACK_DISPLAY_DURATION, COMBO_TIMEOUT,
+  BEAM_LIFE, COLORS,
 } from './constants'
 import { spawnWaveEnemies, moveEnemies, resetEnemyId } from './enemies'
 import { attackWithNote, checkEnemyPlayerCollision, updateParticles } from './collision'
@@ -21,6 +22,7 @@ export function createInitialState(settings?: Partial<DisplaySettings>): GameSta
     },
     enemies: [],
     particles: [],
+    beams: [],
     score: 0,
     wave: 0,
     waveTimer: 0.5, // short delay before first wave
@@ -66,9 +68,21 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
   if (input.activeNote) {
     // Only attack if this is a new note (not held from previous frame)
     if (state.lastNoteAttack !== input.activeNote || state.noteAttackTimer <= 0) {
-      const kills = attackWithNote(input.activeNote, state.enemies, state.particles)
+      const { kills, hitPositions } = attackWithNote(input.activeNote, state.enemies, state.particles)
       state.lastNoteAttack = input.activeNote
       state.noteAttackTimer = NOTE_ATTACK_DISPLAY_DURATION
+
+      // ビーム生成: プレイヤー → 撃破位置
+      const beamColor = COLORS.noteColors[input.activeNote]
+      for (const pos of hitPositions) {
+        state.beams.push({
+          from: { x: state.player.pos.x, y: state.player.pos.y },
+          to: { x: pos.x, y: pos.y },
+          color: beamColor,
+          life: BEAM_LIFE,
+          maxLife: BEAM_LIFE,
+        })
+      }
 
       if (kills > 0) {
         // Combo system
@@ -96,6 +110,19 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
   // Check collisions
   checkEnemyPlayerCollision(state.enemies, state.player, state.time)
 
+  // インベーダーが画面最下段に到達したらダメージ＆消滅
+  for (const e of state.enemies) {
+    if (!e.alive || e.enemyType !== 'invader') continue
+    if (e.pos.y >= CANVAS_BASE_HEIGHT - 20) {
+      e.alive = false
+      if (state.time >= state.player.invincibleUntil) {
+        state.player.hp--
+        state.player.invincibleUntil = state.time + 1.5
+        state.player.damageFlash = 0.3
+      }
+    }
+  }
+
   // Update damage flash
   if (state.player.damageFlash > 0) {
     state.player.damageFlash -= dt
@@ -106,6 +133,12 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
 
   // Update particles
   updateParticles(state.particles, dt)
+
+  // Update beams
+  for (let i = state.beams.length - 1; i >= 0; i--) {
+    state.beams[i].life -= dt
+    if (state.beams[i].life <= 0) state.beams.splice(i, 1)
+  }
 
   // Check game over
   if (state.player.hp <= 0) {

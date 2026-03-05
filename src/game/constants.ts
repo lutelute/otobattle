@@ -21,6 +21,14 @@ export const COMBO_TIMEOUT = 2.0
 
 export const PARTICLE_COUNT_PER_KILL = 8
 export const PARTICLE_LIFE = 0.6
+export const BEAM_LIFE = 0.3
+
+// Invader enemy constants
+export const INVADER_UNLOCK_WAVE = 3
+export const INVADER_SPEED_X = 30       // 横移動速度 (px/s)
+export const INVADER_DROP_STEP = 30     // 一段降下のpx
+export const INVADER_MARGIN = 40        // 左右の折り返し位置
+export const INVADER_ROW_START_Y = 40   // 開始Y位置
 
 // Wave at which sharp enemies start appearing
 export const SHARP_UNLOCK_WAVE = 3
