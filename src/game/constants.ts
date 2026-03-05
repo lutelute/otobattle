@@ -24,7 +24,7 @@ export const PARTICLE_LIFE = 0.6
 export const BEAM_LIFE = 0.3
 
 // Invader enemy constants
-export const INVADER_UNLOCK_WAVE = 3
+export const INVADER_UNLOCK_WAVE = 1
 export const INVADER_SPEED_X = 30       // 横移動速度 (px/s)
 export const INVADER_DROP_STEP = 30     // 一段降下のpx
 export const INVADER_MARGIN = 40        // 左右の折り返し位置

@@ -123,8 +123,8 @@ export function spawnWaveEnemies(
 ): Enemy[] {
   const enemies: Enemy[] = []
 
-  // Wave 3以降: 50%の確率でインベーダー列を1つ生成（通常敵と混在）
-  if (wave >= INVADER_UNLOCK_WAVE && Math.random() < 0.5) {
+  // 毎ウェーブ、インベーダー列＋通常敵を混在で生成
+  if (wave >= INVADER_UNLOCK_WAVE) {
     enemies.push(...spawnInvaderRow(wave))
     // 通常敵は1体減らす（インベーダー列がある分）
     const normalCount = Math.max(1, count - 1)
