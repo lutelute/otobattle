@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { GameInput, NoteName } from '../game/types'
 import { ALL_NOTE_NAMES } from '../game/notes'
 
@@ -36,23 +36,39 @@ function midiNoteToKeyId(midiNote: number): string {
 }
 
 export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, midiConnected, midiDeviceName, midiError, activeMidiNote }: PianoKeyboardProps) {
-  const [activeKey, setActiveKey] = useState<string | null>(null) // "note-octave" で一意識別
+  const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set()) // マルチタッチ対応: 全アクティブkeyId
+  const pointerKeyMapRef = useRef<Map<number, { keyId: string; note: NoteName }>>(new Map())
   const containerRef = useRef<HTMLDivElement>(null)
 
   // MIDIノート番号からkeyId形式に変換してハイライト対象を決定
   const midiKeyId = activeMidiNote != null ? midiNoteToKeyId(activeMidiNote) : null
 
-  const handlePointerDown = (note: NoteName, keyId: string) => {
-    inputRef.current = { activeNote: note, source: 'piano' }
-    setActiveKey(keyId)
-  }
+  const handlePointerDown = useCallback((note: NoteName, keyId: string, pointerId: number) => {
+    pointerKeyMapRef.current.set(pointerId, { keyId, note })
+    const newKeys = new Set(Array.from(pointerKeyMapRef.current.values()).map(v => v.keyId))
+    setActiveKeys(newKeys)
 
-  const handlePointerUp = () => {
-    if (inputRef.current.source === 'piano') {
-      inputRef.current = { activeNote: null, source: null }
+    // activeNotes: 全押下ノート（重複排除）、activeNote: 最後に押されたノート（後方互換）
+    const allNotes = [...new Set(Array.from(pointerKeyMapRef.current.values()).map(v => v.note))]
+    inputRef.current = { activeNote: note, activeNotes: allNotes, source: 'piano' }
+  }, [inputRef])
+
+  const handlePointerUp = useCallback((pointerId: number) => {
+    pointerKeyMapRef.current.delete(pointerId)
+    const remaining = Array.from(pointerKeyMapRef.current.values())
+    const newKeys = new Set(remaining.map(v => v.keyId))
+    setActiveKeys(newKeys)
+
+    if (remaining.length === 0) {
+      if (inputRef.current.source === 'piano') {
+        inputRef.current = { activeNote: null, source: null }
+      }
+    } else {
+      const allNotes = [...new Set(remaining.map(v => v.note))]
+      const lastNote = remaining[remaining.length - 1].note
+      inputRef.current = { activeNote: lastNote, activeNotes: allNotes, source: 'piano' }
     }
-    setActiveKey(null)
-  }
+  }, [inputRef])
 
   const whiteKeyWidthPct = 100 / TOTAL_WHITE_KEYS
 
@@ -96,7 +112,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           <div className="flex h-full">
             {whiteKeys.map(({ note, octave }) => {
               const keyId = `${note}${octave}`
-              const isActive = activeKey === keyId || midiKeyId === keyId
+              const isActive = activeKeys.has(keyId) || midiKeyId === keyId
               const isC4Octave = octave === 4
               // C4オクターブの鍵盤は少しハイライト
               const highlight = isC4Octave
@@ -124,9 +140,9 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
                     transition: 'transform 50ms, box-shadow 50ms',
                     zIndex: 1,
                   }}
-                  onPointerDown={() => handlePointerDown(note, keyId)}
-                  onPointerUp={handlePointerUp}
-                  onPointerLeave={handlePointerUp}
+                  onPointerDown={(e) => handlePointerDown(note, keyId, e.pointerId)}
+                  onPointerUp={(e) => handlePointerUp(e.pointerId)}
+                  onPointerLeave={(e) => handlePointerUp(e.pointerId)}
                   onContextMenu={(e) => e.preventDefault()}
                 >
                   {/* Cキーにオクターブ番号を表示 */}
@@ -149,7 +165,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           {/* Black keys */}
           {blackKeys.map(({ note, octave, globalWhiteIdx }) => {
             const keyId = `${note}${octave}`
-            const isActive = activeKey === keyId || midiKeyId === keyId
+            const isActive = activeKeys.has(keyId) || midiKeyId === keyId
             const leftPct = (globalWhiteIdx + 1) * whiteKeyWidthPct - whiteKeyWidthPct * 0.3
             const widthPct = whiteKeyWidthPct * 0.6
 
@@ -174,9 +190,9 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
                   transition: 'transform 50ms, box-shadow 50ms',
                   zIndex: 2,
                 }}
-                onPointerDown={() => handlePointerDown(note, keyId)}
-                onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
+                onPointerDown={(e) => handlePointerDown(note, keyId, e.pointerId)}
+                onPointerUp={(e) => handlePointerUp(e.pointerId)}
+                onPointerLeave={(e) => handlePointerUp(e.pointerId)}
                 onContextMenu={(e) => e.preventDefault()}
               />
             )

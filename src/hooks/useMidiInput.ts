@@ -44,7 +44,8 @@ export function useMidiInput(
       // Note On
       activeNotesRef.current.add(note)
       const noteName = midiNoteToName(note)
-      inputRef.current = { activeNote: noteName, source: 'midi' }
+      const activeNotes = [...new Set(Array.from(activeNotesRef.current).map(midiNoteToName))]
+      inputRef.current = { activeNote: noteName, activeNotes, source: 'midi' }
       setActiveMidiNote(note)
     } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
       // Note Off
@@ -56,7 +57,8 @@ export function useMidiInput(
         // 他のキーがまだ押されていたら最後に押されたキーを有効に
         const remaining = Array.from(activeNotesRef.current)
         const lastNote = remaining[remaining.length - 1]
-        inputRef.current = { activeNote: midiNoteToName(lastNote), source: 'midi' }
+        const activeNotes = [...new Set(remaining.map(midiNoteToName))]
+        inputRef.current = { activeNote: midiNoteToName(lastNote), activeNotes, source: 'midi' }
         setActiveMidiNote(lastNote)
       }
     }
