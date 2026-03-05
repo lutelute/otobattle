@@ -44,9 +44,10 @@ interface ModeSelectScreenProps {
   onSelectMode: (mode: GameMode) => void
   onBack: () => void
   playerLevel: number
+  children?: React.ReactNode
 }
 
-export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLevel }: ModeSelectScreenProps) {
+export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLevel, children }: ModeSelectScreenProps) {
   // All modes unlocked for MVP; lock system will be added in Phase 8
   const isUnlocked = (_mode: GameMode) => true
 
@@ -94,7 +95,7 @@ export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLev
       </div>
 
       {/* Mode cards grid */}
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 px-4 pb-8 w-full max-w-2xl">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 px-4 pb-4 w-full max-w-2xl">
         {MODE_CARDS.map((card) => {
           const unlocked = isUnlocked(card.mode)
 
@@ -152,6 +153,13 @@ export function ModeSelectScreen({ onSelectMode, onBack, playerLevel: _playerLev
           )
         })}
       </div>
+
+      {/* Settings panel (difficulty & note range) */}
+      {children && (
+        <div className="px-4 pb-8 w-full max-w-2xl">
+          {children}
+        </div>
+      )}
     </div>
   )
 }

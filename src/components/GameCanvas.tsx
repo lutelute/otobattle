@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect, useState } from 'react'
 import { useGameLoop } from '../hooks/useGameLoop'
 import { useKeyboardInput } from '../hooks/useKeyboardInput'
 import { useAudio } from '../hooks/useAudio'
@@ -9,10 +9,14 @@ import { PianoKeyboard } from './PianoKeyboard'
 import { NoteIndicator } from './NoteIndicator'
 import { GameOverScreen } from './GameOverScreen'
 import { TitleScreen } from './TitleScreen'
+import { ModeSelectScreen } from './ModeSelectScreen'
+import { DifficultyPanel, resolveDifficulty } from './DifficultyPanel'
+import type { DifficultyPreset } from './DifficultyPanel'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
 import { saveBestScore } from '../utils/storage'
 import { setSmuflReady } from '../game/renderer'
+import type { GameMode, NoteRangeConfig } from '../game/types'
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -26,7 +30,7 @@ export function GameCanvas() {
   }, [])
 
   useCanvasSize(canvasRef, containerRef)
-  const { hud, inputRef, stateRef, startGame, goToTitle } = useGameLoop(canvasRef)
+  const { hud, inputRef, stateRef, startGame, goToModeSelect, goToTitle } = useGameLoop(canvasRef)
 
   const isPlaying = hud.phase === 'playing' || hud.phase === 'waveAnnounce'
 
@@ -34,10 +38,28 @@ export function GameCanvas() {
   const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying, hud.settings.instrument)
   const { midiConnected, midiDeviceName, midiError, activeMidiNote } = useMidiInput(inputRef, isPlaying)
 
+  // Mode selection state (difficulty & note range are chosen before starting a game)
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPreset>('normal')
+  const [selectedNoteRange, setSelectedNoteRange] = useState<NoteRangeConfig>({ minNote: 'C', maxNote: 'B' })
+
+  const handleGoToModeSelect = useCallback(async () => {
+    await ensureAudioContext()
+    goToModeSelect()
+  }, [goToModeSelect])
+
+  const handleSelectMode = useCallback(async (mode: GameMode) => {
+    await ensureAudioContext()
+    startGame(mode, resolveDifficulty(selectedDifficulty), selectedNoteRange)
+  }, [startGame, selectedDifficulty, selectedNoteRange])
+
   const handleRestart = useCallback(async () => {
     await ensureAudioContext()
-    startGame()
-  }, [startGame])
+    // Restart with the same mode and settings
+    const currentMode = stateRef.current.mode ?? 'noteFrenzy'
+    const currentDifficulty = stateRef.current.difficulty
+    const currentNoteRange = stateRef.current.noteRange
+    startGame(currentMode, currentDifficulty, currentNoteRange)
+  }, [startGame, stateRef])
 
   // Track previous state for sound effects
   const prevHpRef = useRef(hud.hp)
@@ -93,12 +115,27 @@ export function GameCanvas() {
 
         {hud.phase === 'title' && (
           <TitleScreen
-            onStart={handleRestart}
+            onStart={handleGoToModeSelect}
             instrument={hud.settings.instrument}
             onChangeInstrument={(inst) => {
               stateRef.current.settings.instrument = inst
             }}
           />
+        )}
+
+        {hud.phase === 'modeSelect' && (
+          <ModeSelectScreen
+            onSelectMode={handleSelectMode}
+            onBack={goToTitle}
+            playerLevel={1}
+          >
+            <DifficultyPanel
+              difficulty={selectedDifficulty}
+              noteRange={selectedNoteRange}
+              onChangeDifficulty={setSelectedDifficulty}
+              onChangeNoteRange={setSelectedNoteRange}
+            />
+          </ModeSelectScreen>
         )}
 
         {hud.phase === 'gameover' && (

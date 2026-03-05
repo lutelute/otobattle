@@ -81,7 +81,7 @@ export function TitleScreen({ onStart, instrument, onChangeInstrument }: TitleSc
         </div>
       </div>
 
-      {/* START button */}
+      {/* PLAY button - navigates to mode selection */}
       <button
         onClick={handleStart}
         className="px-12 py-3.5 text-sm rounded-lg transition-all active:scale-95 mb-10"
@@ -93,7 +93,7 @@ export function TitleScreen({ onStart, instrument, onChangeInstrument }: TitleSc
           textShadow: '0 1px 2px rgba(0,0,0,0.3)',
         }}
       >
-        START
+        PLAY
       </button>
 
       {/* Instructions */}

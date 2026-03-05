@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import type { GameState, GameInput, DisplaySettings } from '../game/types'
+import type { GameState, GameInput, GameMode, DifficultySettings, NoteRangeConfig, DisplaySettings } from '../game/types'
 import { createInitialState, updateGame } from '../game/engine'
 import { render } from '../game/renderer'
 
@@ -12,6 +12,7 @@ export interface HudState {
   phase: GameState['phase']
   lastNoteAttack: GameState['lastNoteAttack']
   settings: DisplaySettings
+  mode: GameMode
 }
 
 export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
@@ -22,14 +23,26 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
   const [hud, setHud] = useState<HudState>({
     hp: 5, maxHp: 5, score: 0, wave: 0, combo: 0, phase: 'title', lastNoteAttack: null,
     settings: { notationFormat: 'solfege', theme: 'dark', instrument: 'piano' },
+    mode: 'noteFrenzy',
   })
   const hudThrottleRef = useRef(0)
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback((
+    mode?: GameMode,
+    difficulty?: DifficultySettings,
+    noteRange?: NoteRangeConfig,
+  ) => {
     const settings = stateRef.current.settings
-    const mode = stateRef.current.mode ?? 'noteFrenzy'
-    stateRef.current = createInitialState(mode, settings)
+    const resolvedMode = mode ?? stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(resolvedMode, settings, difficulty, noteRange)
     lastTimeRef.current = 0
+  }, [])
+
+  const goToModeSelect = useCallback(() => {
+    stateRef.current.phase = 'modeSelect'
+    lastTimeRef.current = 0
+    // 即座にHUDに反映
+    setHud(prev => ({ ...prev, phase: 'modeSelect' }))
   }, [])
 
   const goToTitle = useCallback(() => {
@@ -76,6 +89,7 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
         phase: state.phase,
         lastNoteAttack: state.lastNoteAttack,
         settings: { ...state.settings },
+        mode: state.mode ?? 'noteFrenzy',
       })
     }
 
@@ -87,5 +101,5 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
     return () => cancelAnimationFrame(rafRef.current)
   }, [loop])
 
-  return { hud, inputRef, stateRef, startGame, goToTitle }
+  return { hud, inputRef, stateRef, startGame, goToModeSelect, goToTitle }
 }
