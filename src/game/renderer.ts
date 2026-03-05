@@ -1,4 +1,5 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
+import type { ScalesState } from './modes/types'
 import { NOTES, getStaffPlacement } from './notes'
 import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS, BEAM_ZIGZAG_AMPLITUDE, BEAM_ZIGZAG_SEGMENTS, BEAM_LIGHTNING_SEGMENTS } from './constants'
 import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef, drawAltoClef } from './musicGlyphs'
@@ -123,8 +124,23 @@ export function render(
     ctx.font = 'bold 36px monospace'
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
-    ctx.fillText(`WAVE ${state.wave}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 60)
+
+    if (state.mode === 'scales' && state.modeState) {
+      const sd = state.modeState.data as unknown as ScalesState
+      const scaleName = formatScaleName(sd.scaleKey, sd.currentScale)
+      ctx.fillText(`WAVE ${state.wave}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 80)
+      ctx.font = 'bold 24px monospace'
+      ctx.fillText(scaleName, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 40)
+    } else {
+      ctx.fillText(`WAVE ${state.wave}`, CANVAS_BASE_WIDTH / 2, CANVAS_BASE_HEIGHT / 2 - 60)
+    }
+
     ctx.restore()
+  }
+
+  // Scales mode: draw scale info overlay above play area
+  if (state.mode === 'scales' && state.modeState && state.phase === 'playing') {
+    drawScalesInfo(ctx, state, c)
   }
 
   if (state.player.damageFlash > 0) {
@@ -457,4 +473,52 @@ function drawParticles(ctx: CanvasRenderingContext2D, state: GameState) {
     ctx.fillRect(p.pos.x - s / 2, p.pos.y - s / 2, s, s)
   }
   ctx.globalAlpha = 1
+}
+
+/** Format scale type name with title case (e.g. 'major' → 'Major') */
+function formatScaleName(key: string, scaleType: string): string {
+  const typeLabel = scaleType
+    .split(' ')
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+  return `${key} ${typeLabel}`
+}
+
+/**
+ * Draw scales mode info overlay: scale name, degree progress, direction arrow.
+ * Rendered at the top-center of the canvas during 'playing' phase.
+ */
+function drawScalesInfo(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  c: ReturnType<typeof themeColors>,
+) {
+  const sd = state.modeState!.data as unknown as ScalesState
+  const scaleName = formatScaleName(sd.scaleKey, sd.currentScale)
+  const totalNotes = sd.scaleNotes.length
+  const currentDegree = sd.direction === 'ascending'
+    ? sd.currentDegree + 1
+    : totalNotes + sd.currentDegree + 1
+  const totalSteps = totalNotes + (totalNotes - 1) // ascending + descending
+  const directionArrow = sd.direction === 'ascending' ? '\u2191' : '\u2193' // ↑ or ↓
+
+  const cx = CANVAS_BASE_WIDTH / 2
+  const y = 28
+
+  ctx.save()
+  ctx.globalAlpha = 0.85
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+
+  // Scale name (e.g. "C Major")
+  ctx.fillStyle = c.waveText
+  ctx.font = 'bold 16px monospace'
+  ctx.fillText(scaleName, cx, y)
+
+  // Degree progress and direction (e.g. "3/13 ↑")
+  ctx.fillStyle = c.labelColor
+  ctx.font = '13px monospace'
+  ctx.fillText(`${currentDegree}/${totalSteps} ${directionArrow}`, cx, y + 18)
+
+  ctx.restore()
 }

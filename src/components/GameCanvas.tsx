@@ -96,6 +96,8 @@ export function GameCanvas() {
             <HUD
               hp={hud.hp} maxHp={hud.maxHp} score={hud.score} wave={hud.wave} combo={hud.combo}
               settings={hud.settings}
+              mode={hud.mode}
+              modeState={hud.modeState}
               onCycleNotation={() => {
                 const order: import('../game/types').NotationFormat[] = ['abc', 'solfege', 'staff']
                 const idx = order.indexOf(stateRef.current.settings.notationFormat)

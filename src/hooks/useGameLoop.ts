@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import type { GameState, GameInput, GameMode, DifficultySettings, NoteRangeConfig, DisplaySettings } from '../game/types'
+import type { GameState, GameInput, GameMode, DifficultySettings, NoteRangeConfig, DisplaySettings, ModeState } from '../game/types'
 import { createInitialState, updateGame } from '../game/engine'
 import { render } from '../game/renderer'
 
@@ -13,6 +13,7 @@ export interface HudState {
   lastNoteAttack: GameState['lastNoteAttack']
   settings: DisplaySettings
   mode: GameMode
+  modeState?: ModeState
 }
 
 export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
@@ -90,6 +91,7 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
         lastNoteAttack: state.lastNoteAttack,
         settings: { ...state.settings },
         mode: state.mode ?? 'noteFrenzy',
+        modeState: state.modeState ? { ...state.modeState } : undefined,
       })
     }
 

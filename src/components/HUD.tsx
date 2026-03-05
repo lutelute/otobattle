@@ -1,4 +1,5 @@
-import type { DisplaySettings, InstrumentType } from '../game/types'
+import type { DisplaySettings, InstrumentType, GameMode, ModeState } from '../game/types'
+import type { ScalesState } from '../game/modes/types'
 import { INSTRUMENT_PROFILES } from '../audio/pitchDetector'
 
 const INSTRUMENT_ORDER: InstrumentType[] = ['piano', 'violin', 'viola', 'cello', 'guitar', 'flute', 'voice']
@@ -16,13 +17,15 @@ interface HUDProps {
   wave: number
   combo: number
   settings: DisplaySettings
+  mode: GameMode
+  modeState?: ModeState
   onCycleNotation: () => void
   onToggleTheme: () => void
   onChangeInstrument: (inst: InstrumentType) => void
   onHome: () => void
 }
 
-export function HUD({ hp, maxHp, score, wave, combo, settings, onCycleNotation, onToggleTheme, onChangeInstrument, onHome }: HUDProps) {
+export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, onCycleNotation, onToggleTheme, onChangeInstrument, onHome }: HUDProps) {
   const cycleInstrument = () => {
     const idx = INSTRUMENT_ORDER.indexOf(settings.instrument)
     const next = INSTRUMENT_ORDER[(idx + 1) % INSTRUMENT_ORDER.length]
@@ -84,6 +87,36 @@ export function HUD({ hp, maxHp, score, wave, combo, settings, onCycleNotation, 
         >
           WAVE {wave}
         </span>
+        {/* Scales mode: scale name and progress */}
+        {mode === 'scales' && modeState && (() => {
+          const sd = modeState.data as unknown as ScalesState
+          const scaleTypeLabel = sd.currentScale
+            .split(' ')
+            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+            .join(' ')
+          const totalNotes = sd.scaleNotes.length
+          const totalSteps = totalNotes + (totalNotes - 1)
+          const currentStep = sd.direction === 'ascending'
+            ? sd.currentDegree + 1
+            : totalNotes + sd.currentDegree + 1
+          const dirArrow = sd.direction === 'ascending' ? '\u2191' : '\u2193'
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span
+                className="text-sm font-bold"
+                style={{ color: '#60a5fa', textShadow }}
+              >
+                {sd.scaleKey} {scaleTypeLabel}
+              </span>
+              <span
+                className="text-xs"
+                style={{ color: isDark ? '#94a3b8' : '#64748b', textShadow }}
+              >
+                {currentStep}/{totalSteps} {dirArrow}
+              </span>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Right panel: Score + Combo + Controls */}
