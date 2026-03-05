@@ -12,12 +12,15 @@ import { TitleScreen } from './TitleScreen'
 import { ModeSelectScreen } from './ModeSelectScreen'
 import { DifficultyPanel, resolveDifficulty } from './DifficultyPanel'
 import type { DifficultyPreset } from './DifficultyPanel'
+import { MidiFileUpload } from './MidiFileUpload'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
 import { saveBestScore } from '../utils/storage'
 import { setSmuflReady } from '../game/renderer'
 import type { GameMode, NoteRangeConfig } from '../game/types'
 import { requestReplay } from '../game/modes/perfectPitch'
+import { createFullSongState } from '../game/modes/fullSong'
+import type { MidiNoteEvent } from '../game/midiParser'
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -45,6 +48,16 @@ export function GameCanvas() {
   const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPreset>('normal')
   const [selectedNoteRange, setSelectedNoteRange] = useState<NoteRangeConfig>({ minNote: 'C', maxNote: 'B' })
 
+  // Full Song mode: MIDI file upload state
+  const [showMidiUpload, setShowMidiUpload] = useState(false)
+
+  // Reset MIDI upload state when phase changes away from modeSelect
+  useEffect(() => {
+    if (hud.phase !== 'modeSelect') {
+      setShowMidiUpload(false)
+    }
+  }, [hud.phase])
+
   const handleGoToModeSelect = useCallback(async () => {
     await ensureAudioContext()
     goToModeSelect()
@@ -52,17 +65,48 @@ export function GameCanvas() {
 
   const handleSelectMode = useCallback(async (mode: GameMode) => {
     await ensureAudioContext()
+    if (mode === 'fullSong') {
+      // Show MIDI file upload UI instead of starting game immediately
+      setShowMidiUpload(true)
+      return
+    }
     startGame(mode, resolveDifficulty(selectedDifficulty), selectedNoteRange)
   }, [startGame, selectedDifficulty, selectedNoteRange])
 
+  /** Called when MIDI file is loaded and track selected in MidiFileUpload */
+  const handleMidiReady = useCallback((
+    timeline: MidiNoteEvent[],
+    trackInfo: { name: string; songDuration: number; trackIndex: number },
+  ) => {
+    setShowMidiUpload(false)
+    startGame('fullSong', resolveDifficulty(selectedDifficulty), selectedNoteRange)
+
+    // Inject parsed timeline data into the full song mode state
+    const fullSongData = createFullSongState(
+      timeline,
+      trackInfo.name,
+      trackInfo.songDuration,
+      trackInfo.trackIndex,
+    )
+    stateRef.current.modeState = {
+      progress: 0,
+      data: fullSongData as unknown as Record<string, unknown>,
+    }
+  }, [startGame, selectedDifficulty, selectedNoteRange, stateRef])
+
   const handleRestart = useCallback(async () => {
     await ensureAudioContext()
-    // Restart with the same mode and settings
     const currentMode = stateRef.current.mode ?? 'noteFrenzy'
+    // For fullSong mode, go back to MIDI file upload instead of restarting with empty timeline
+    if (currentMode === 'fullSong') {
+      goToModeSelect()
+      setShowMidiUpload(true)
+      return
+    }
     const currentDifficulty = stateRef.current.difficulty
     const currentNoteRange = stateRef.current.noteRange
     startGame(currentMode, currentDifficulty, currentNoteRange)
-  }, [startGame, stateRef])
+  }, [startGame, stateRef, goToModeSelect])
 
   // Track previous state for sound effects
   const prevHpRef = useRef(hud.hp)
@@ -129,7 +173,7 @@ export function GameCanvas() {
           />
         )}
 
-        {hud.phase === 'modeSelect' && (
+        {hud.phase === 'modeSelect' && !showMidiUpload && (
           <ModeSelectScreen
             onSelectMode={handleSelectMode}
             onBack={goToTitle}
@@ -142,6 +186,13 @@ export function GameCanvas() {
               onChangeNoteRange={setSelectedNoteRange}
             />
           </ModeSelectScreen>
+        )}
+
+        {showMidiUpload && (
+          <MidiFileUpload
+            onReady={handleMidiReady}
+            onBack={() => setShowMidiUpload(false)}
+          />
         )}
 
         {hud.phase === 'gameover' && (

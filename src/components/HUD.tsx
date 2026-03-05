@@ -1,5 +1,5 @@
 import type { DisplaySettings, InstrumentType, GameMode, ModeState } from '../game/types'
-import type { ScalesState, ChordsState, PerfectPitchState } from '../game/modes/types'
+import type { ScalesState, ChordsState, PerfectPitchState, FullSongState } from '../game/modes/types'
 import { INSTRUMENT_PROFILES } from '../audio/pitchDetector'
 
 const INSTRUMENT_ORDER: InstrumentType[] = ['piano', 'violin', 'viola', 'cello', 'guitar', 'flute', 'voice']
@@ -176,6 +176,34 @@ export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, 
                   Replay ({ppd.replaysRemaining})
                 </button>
               )}
+            </div>
+          )
+        })()}
+        {/* Full Song mode: song progress and notes remaining */}
+        {mode === 'fullSong' && modeState && (() => {
+          const fsd = modeState.data as unknown as FullSongState & {
+            totalNotes: number
+            notesHit: number
+            songComplete: boolean
+          }
+          const progressPct = fsd.songDuration > 0
+            ? Math.min(100, Math.round((fsd.songProgress / fsd.songDuration) * 100))
+            : 0
+          const notesRemaining = fsd.totalNotes - fsd.currentNoteIndex
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span
+                className="text-sm font-bold"
+                style={{ color: '#f97316', textShadow }}
+              >
+                {fsd.songName}
+              </span>
+              <span
+                className="text-xs"
+                style={{ color: isDark ? '#94a3b8' : '#64748b', textShadow }}
+              >
+                {progressPct}% \u2022 {notesRemaining} notes left
+              </span>
             </div>
           )
         })()}

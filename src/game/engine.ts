@@ -10,6 +10,7 @@ import { updateNoteFrenzyMode } from './modes/noteFrenzy'
 import { updateScalesMode, createScalesState } from './modes/scales'
 import { updateChordsMode, createChordsState } from './modes/chords'
 import { updatePerfectPitchMode, createPerfectPitchState } from './modes/perfectPitch'
+import { updateFullSongMode, createFullSongState } from './modes/fullSong'
 
 /** Create initial ModeState for the given game mode */
 export function createModeState(mode: GameMode): ModeState {
@@ -23,7 +24,7 @@ export function createModeState(mode: GameMode): ModeState {
     case 'perfectPitch':
       return { progress: 0, data: createPerfectPitchState() as unknown as Record<string, unknown> }
     case 'fullSong':
-      return { progress: 0, data: {} }
+      return { progress: 0, data: createFullSongState([]) as unknown as Record<string, unknown> }
   }
 }
 
@@ -126,8 +127,7 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
       skipCommon = updatePerfectPitchMode(state, dt, input)
       break
     case 'fullSong':
-      // TODO: dispatch to updateFullSongMode when implemented
-      skipCommon = updateNoteFrenzyMode(state, dt, input)
+      skipCommon = updateFullSongMode(state, dt, input)
       break
   }
 

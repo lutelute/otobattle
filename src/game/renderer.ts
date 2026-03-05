@@ -1,5 +1,5 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
-import type { ScalesState, ChordsState, PerfectPitchState } from './modes/types'
+import type { ScalesState, ChordsState, PerfectPitchState, FullSongState } from './modes/types'
 import { NOTES, getStaffPlacement } from './notes'
 import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS, BEAM_ZIGZAG_AMPLITUDE, BEAM_ZIGZAG_SEGMENTS, BEAM_LIGHTNING_SEGMENTS, PERFECT_PITCH_TIMEOUT, PERFECT_PITCH_REPLAY_LIMIT } from './constants'
 import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef, drawAltoClef } from './musicGlyphs'
@@ -167,6 +167,11 @@ export function render(
   // Chords mode: draw chord info overlay above play area
   if (state.mode === 'chords' && state.modeState && state.phase === 'playing') {
     drawChordsInfo(ctx, state, c)
+  }
+
+  // Full Song mode: draw song progress bar at top of canvas
+  if (state.mode === 'fullSong' && state.modeState && state.phase === 'playing') {
+    drawSongProgressBar(ctx, state, c)
   }
 
   if (state.player.damageFlash > 0) {
@@ -661,6 +666,90 @@ function drawChordsInfo(
   ctx.fillStyle = c.labelColor
   ctx.font = '13px monospace'
   ctx.fillText(`${matched}/${total} notes`, cx, y + 18)
+
+  ctx.restore()
+}
+
+// ─── Full Song Mode Rendering ─────────────────────────────────────────
+
+/**
+ * Draw a thin horizontal progress bar at the top of the canvas showing
+ * elapsed / total song duration, plus song name and notes remaining.
+ */
+function drawSongProgressBar(
+  ctx: CanvasRenderingContext2D,
+  state: GameState,
+  c: ReturnType<typeof themeColors>,
+) {
+  if (!state.modeState) return
+  const fsd = state.modeState.data as unknown as FullSongState & {
+    totalNotes: number
+    notesHit: number
+    songComplete: boolean
+  }
+
+  const barMargin = 60
+  const barW = CANVAS_BASE_WIDTH - barMargin * 2
+  const barH = 4
+  const barX = barMargin
+  const barY = 8
+
+  const progress = Math.min(1.0, fsd.songDuration > 0 ? fsd.songProgress / fsd.songDuration : 0)
+
+  // Bar background
+  ctx.save()
+  ctx.globalAlpha = 0.4
+  ctx.fillStyle = c.staffLine
+  roundRect(ctx, barX, barY, barW, barH, 2)
+  ctx.fill()
+  ctx.restore()
+
+  // Bar fill with gradient
+  if (progress > 0) {
+    ctx.save()
+    ctx.globalAlpha = 0.9
+    const fillGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0)
+    fillGrad.addColorStop(0, '#e94560')
+    fillGrad.addColorStop(1, '#f97316')
+    ctx.fillStyle = fillGrad
+    const fillW = Math.max(4, barW * progress) // min width for visibility
+    roundRect(ctx, barX, barY, fillW, barH, 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  // Song name (left-aligned below bar)
+  ctx.save()
+  ctx.globalAlpha = 0.7
+  ctx.fillStyle = c.labelColor
+  ctx.font = '10px monospace'
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  ctx.fillText(fsd.songName, barX, barY + barH + 4)
+
+  // Time display (right-aligned below bar)
+  const elapsed = Math.max(0, fsd.songProgress)
+  const total = fsd.songDuration
+  const formatTime = (s: number) => {
+    const min = Math.floor(s / 60)
+    const sec = Math.floor(s % 60)
+    return `${min}:${sec.toString().padStart(2, '0')}`
+  }
+  ctx.textAlign = 'right'
+  ctx.fillText(
+    `${formatTime(elapsed)} / ${formatTime(total)}`,
+    barX + barW,
+    barY + barH + 4,
+  )
+
+  // Notes hit / total (centered below bar)
+  const notesRemaining = fsd.totalNotes - fsd.currentNoteIndex
+  ctx.textAlign = 'center'
+  ctx.fillText(
+    `${fsd.notesHit}/${fsd.totalNotes} hit \u2022 ${notesRemaining} left`,
+    CANVAS_BASE_WIDTH / 2,
+    barY + barH + 4,
+  )
 
   ctx.restore()
 }
