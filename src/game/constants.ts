@@ -36,6 +36,14 @@ export const SHARP_UNLOCK_WAVE = 3
 // Wave at which bass clef enemies start appearing
 export const BASS_CLEF_UNLOCK_WAVE = 2
 
+// Wave at which alto/C clef enemies start appearing
+export const ALTO_CLEF_UNLOCK_WAVE = 4
+
+// Beam zigzag/lightning effect constants
+export const BEAM_ZIGZAG_AMPLITUDE = 8    // perpendicular offset (px)
+export const BEAM_ZIGZAG_SEGMENTS = 10    // number of zigzag segments
+export const BEAM_LIGHTNING_SEGMENTS = 6  // number of lightning segments
+
 // Keyboard: letter = natural note, Shift+letter = sharp
 // Handled in useKeyboardInput — no static map needed for sharps
 export const KEY_NOTE_MAP: Record<string, import('./types').NoteName> = {
