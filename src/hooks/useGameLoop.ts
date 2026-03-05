@@ -37,11 +37,19 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
     const resolvedMode = mode ?? stateRef.current.mode ?? 'noteFrenzy'
     stateRef.current = createInitialState(resolvedMode, settings, difficulty, noteRange)
     lastTimeRef.current = 0
+    // Clear any pending input from previous session
+    inputRef.current = { activeNote: null, source: null }
   }, [])
 
   const goToModeSelect = useCallback(() => {
+    // Create fresh state to ensure no stale enemies/particles/beams/modeState leak
+    const settings = stateRef.current.settings
+    const mode = stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(mode, settings)
     stateRef.current.phase = 'modeSelect'
     lastTimeRef.current = 0
+    // Clear any pending input
+    inputRef.current = { activeNote: null, source: null }
     // 即座にHUDに反映
     setHud(prev => ({ ...prev, phase: 'modeSelect' }))
   }, [])
@@ -52,6 +60,8 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
     stateRef.current = createInitialState(mode, settings)
     stateRef.current.phase = 'title'
     lastTimeRef.current = 0
+    // Clear any pending input
+    inputRef.current = { activeNote: null, source: null }
     // 即座にHUDに反映
     setHud(prev => ({ ...prev, phase: 'title' }))
   }, [])
