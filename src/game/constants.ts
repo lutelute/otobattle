@@ -60,8 +60,9 @@ export const SHIFT_KEY_NOTE_MAP: Record<string, import('./types').NoteName> = {
 }
 
 export const COLORS = {
-  bg: '#1a1a2e',
-  bgGrid: '#16213e',
+  bg: '#0f0f23',
+  bgBottom: '#1a1a2e',
+  bgGrid: '#1a1a3e',
   player: '#e94560',
   playerInvincible: '#e9456080',
   staff: '#334155',

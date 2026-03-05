@@ -15,12 +15,14 @@ const SMUFL_ALTO_CLEF = '\uE05C'
 function themeColors(theme: DisplaySettings['theme']) {
   if (theme === 'light') {
     return {
-      bg: '#f0f0f0',
-      grid: '#00000008',
+      bgTop: '#e8e8f0',
+      bgBottom: '#f5f5f5',
+      grid: '#00000010',
       player: '#e94560',
       playerInv: '#e9456080',
       panelBg: '#ffffffee',
-      panelBorder: '#00000020',
+      panelBorder: '#00000028',
+      panelShadow: '#00000015',
       staffLine: '#00000050',
       noteColor: '#000000',
       clefColor: '#000000c0',
@@ -28,22 +30,26 @@ function themeColors(theme: DisplaySettings['theme']) {
       waveText: '#d97706',
       damageFlash: '#ff000030',
       attackWave: '#000000',
+      beamCore: '#333333',
     }
   }
   return {
-    bg: '#1a1a2e',
-    grid: '#ffffff08',
+    bgTop: '#0f0f23',
+    bgBottom: '#1a1a2e',
+    grid: '#ffffff14',
     player: '#e94560',
     playerInv: '#e9456080',
-    panelBg: '#ffffffee',
-    panelBorder: '#00000015',
-    staffLine: '#00000050',
+    panelBg: '#f8fafcf0',
+    panelBorder: '#00000030',
+    panelShadow: '#00000050',
+    staffLine: '#00000058',
     noteColor: '#000000',
     clefColor: '#000000c0',
-    labelColor: '#444',
+    labelColor: '#94a3b8',
     waveText: '#fbbf24',
     damageFlash: '#ff000030',
     attackWave: '#ffffff',
+    beamCore: '#ffffff',
   }
 }
 
@@ -66,8 +72,11 @@ export function render(
   ctx.translate(offsetX, offsetY)
   ctx.scale(scale, scale)
 
-  // 背景
-  ctx.fillStyle = c.bg
+  // 背景（グラデーション）
+  const bgGrad = ctx.createLinearGradient(0, 0, 0, CANVAS_BASE_HEIGHT)
+  bgGrad.addColorStop(0, c.bgTop)
+  bgGrad.addColorStop(1, c.bgBottom)
+  ctx.fillStyle = bgGrad
   ctx.fillRect(0, 0, CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT)
   ctx.strokeStyle = c.grid
   ctx.lineWidth = 1
@@ -86,7 +95,7 @@ export function render(
 
   // ビーム描画
   for (const beam of state.beams) {
-    drawBeam(ctx, beam)
+    drawBeam(ctx, beam, c.beamCore)
   }
 
   drawPlayer(ctx, state, c)
@@ -182,12 +191,18 @@ function drawEnemy(
   const panelH = staffH + padTop + padBot    // 合計 92px
   const panelTop = -panelH / 2               // 敵の中心を基準にパネルを配置
 
-  // パネル背景
+  // パネル背景（影付き）
+  ctx.save()
+  ctx.shadowColor = c.panelShadow
+  ctx.shadowBlur = 8
+  ctx.shadowOffsetY = 2
   ctx.fillStyle = c.panelBg
+  roundRect(ctx, -staffW / 2, panelTop, staffW, panelH, 6)
+  ctx.fill()
+  ctx.restore()
   ctx.strokeStyle = c.panelBorder
   ctx.lineWidth = 1
   roundRect(ctx, -staffW / 2, panelTop, staffW, panelH, 6)
-  ctx.fill()
   ctx.stroke()
 
   const staffTop = panelTop + padTop
@@ -353,7 +368,7 @@ function strokeBeamPath(ctx: CanvasRenderingContext2D, points: { x: number; y: n
   ctx.stroke()
 }
 
-function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam) {
+function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam, coreColor: string) {
   const alpha = beam.life / beam.maxLife
   const points = generateBeamPath(beam)
 
@@ -367,9 +382,9 @@ function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam) {
   ctx.lineWidth = 8
   strokeBeamPath(ctx, points)
 
-  // 細いコア（白）
+  // 細いコア（テーマ対応）
   ctx.globalAlpha = alpha * 0.9
-  ctx.strokeStyle = '#ffffff'
+  ctx.strokeStyle = coreColor
   ctx.lineWidth = 2
   strokeBeamPath(ctx, points)
 
