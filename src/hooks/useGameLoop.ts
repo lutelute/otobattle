@@ -27,13 +27,15 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
 
   const startGame = useCallback(() => {
     const settings = stateRef.current.settings
-    stateRef.current = createInitialState(settings)
+    const mode = stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(mode, settings)
     lastTimeRef.current = 0
   }, [])
 
   const goToTitle = useCallback(() => {
     const settings = stateRef.current.settings
-    stateRef.current = createInitialState(settings)
+    const mode = stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(mode, settings)
     stateRef.current.phase = 'title'
     lastTimeRef.current = 0
     // 即座にHUDに反映
