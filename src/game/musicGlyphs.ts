@@ -20,67 +20,68 @@ export function drawTrebleClef(
 ) {
   ctx.save()
   ctx.translate(x, y)
-  // 基準: h = 五線の高さ(lineGap*4)。ト音記号は五線の上下にはみ出す
-  const s = h / 20 // 正規化スケール
+  // 基準: h = 五線の高さ(lineGap*4)。y=0はG4線（第2線）
+  // Line 5: y=-15s, Line 4: y=-10s, Line 3: y=-5s, G/Line 2: y=0, Line 1: y=+5s
+  const s = h / 20
 
   ctx.strokeStyle = color
   ctx.lineWidth = s * 1.8
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
+  // ── S字カーブ（螺旋の本体）──
   ctx.beginPath()
+  ctx.moveTo(0, s * 11)        // 下端（第1線の下）
 
-  // ── 下端の丸い部分（第1線の下のカール）──
-  // G線(y=0)基準で、第1線は y = +lineGap*2 = +h/2
-  // 下端は五線の少し下
-  ctx.moveTo(s * 1, s * 14)   // 下端スタート
+  // 下端の小さなカール（LEFT、コンパクト）
   ctx.bezierCurveTo(
-    s * -4, s * 13,   // 左にカール
-    s * -4, s * 8,
-    s * 0, s * 6,     // 第1線あたりに戻る
+    s * -3, s * 10,
+    s * -3, s * 7,
+    s * -1, s * 4,              // 第1線付近、やや左
   )
 
-  // ── 大きなS字（右上へ膨らむ）──
+  // 大きな腹（RIGHT、第3-4線付近でピーク）
   ctx.bezierCurveTo(
-    s * 6, s * 2,     // 右へ大きく膨らむ
-    s * 7, s * -4,
-    s * 4, s * -8,    // 上部へ
-  )
-  ctx.bezierCurveTo(
-    s * 1, s * -12,
-    s * -5, s * -8,
-    s * -4, s * -3,   // 左上からカーブして戻る
+    s * 4, s * 0,               // G線を右に横切る
+    s * 7, s * -7,              // 第3-4線付近で最大に右膨らみ
+    s * 3, s * -12,             // 第4線の上、中央に戻る
   )
 
-  // ── 左下へ小さくカーブ（内側のループ）──
+  // 上部カーブ（LEFT、第5線の上）
   ctx.bezierCurveTo(
-    s * -3, s * 0,
-    s * -1, s * 3,
-    s * 1, s * 4,     // G線の少し下
+    s * 0, s * -16,             // 第5線の上
+    s * -5, s * -12,            // 左に大きくカーブ
+    s * -3, s * -6,             // 第3線付近、左側
   )
 
+  // 内側のリターン（RIGHT、G線付近に戻る）
+  ctx.bezierCurveTo(
+    s * -2, s * -1,             // G線の左側を下降
+    s * -1, s * 2,              // G線を横切る
+    0, s * 3,                   // G線のやや下、中央
+  )
   ctx.stroke()
 
   // ── 縦の直線部分 ──
   ctx.beginPath()
-  ctx.moveTo(s * 1, s * 4)
-  ctx.lineTo(s * 1, s * -15)  // 五線の上まで伸びる
+  ctx.moveTo(0, s * 3)
+  ctx.lineTo(0, s * -16)       // 第5線の上まで
   ctx.stroke()
 
-  // ── 上端の小さなカーブ ──
+  // ── 上端の小さなフック ──
   ctx.beginPath()
-  ctx.moveTo(s * 1, s * -15)
+  ctx.moveTo(0, s * -16)
   ctx.bezierCurveTo(
-    s * 3, s * -17,
-    s * 4, s * -14,
-    s * 2, s * -12,
+    s * 2, s * -18,
+    s * 3, s * -16,
+    s * 2, s * -14,
   )
   ctx.stroke()
 
   // ── 下端の丸い点 ──
   ctx.fillStyle = color
   ctx.beginPath()
-  ctx.arc(s * 1, s * 14, s * 1.5, 0, Math.PI * 2)
+  ctx.arc(0, s * 11, s * 1.5, 0, Math.PI * 2)
   ctx.fill()
 
   ctx.restore()
@@ -103,6 +104,8 @@ export function drawBassClef(
 ) {
   ctx.save()
   ctx.translate(x, y)
+  // 基準: y=0はF3線（第4線）。lineGap = 5s
+  // Line 5: y=-5s, F/Line 4: y=0, Line 3: y=+5s, Line 2: y=+10s, Line 1: y=+15s
   const s = h / 20
 
   ctx.strokeStyle = color
@@ -111,34 +114,34 @@ export function drawBassClef(
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
 
-  // ── メインカーブ（F線から上にカーブして下に降りる）──
+  // ── メインカーブ（F線上のドットから右上へ、そして左下へ）──
   ctx.beginPath()
-  ctx.moveTo(s * -2, s * -6)
+  ctx.moveTo(s * -1, 0)          // F線上（ドットの右端）からスタート
   ctx.bezierCurveTo(
-    s * 2, s * -8,
-    s * 6, s * -6,
-    s * 6, s * -2,
+    s * 3, s * -3,                // 右上へ
+    s * 6, s * -5,                // 第5線付近、右
+    s * 6, 0,                     // F線レベルに戻る（右端）
   )
   ctx.bezierCurveTo(
-    s * 6, s * 2,
-    s * 2, s * 6,
-    s * -4, s * 8,
+    s * 6, s * 5,                 // 第3線付近まで下降
+    s * 2, s * 10,                // 左下へ大きくカーブ
+    s * -3, s * 12,               // 左端（第2線の下）
   )
   ctx.stroke()
 
-  // ── 左端の丸い点（F線上）──
+  // ── F線上の丸い点 ──
   ctx.beginPath()
-  ctx.arc(s * -2, s * -6, s * 1.8, 0, Math.PI * 2)
+  ctx.arc(s * -2, 0, s * 1.8, 0, Math.PI * 2)
   ctx.fill()
 
-  // ── 2つのドット（F線の上下）──
+  // ── 2つのドット（F線の上下、各½lineGap = 2.5s）──
   const dotX = s * 8
   const dotR = s * 1.2
   ctx.beginPath()
-  ctx.arc(dotX, s * -3, dotR, 0, Math.PI * 2)
+  ctx.arc(dotX, s * -2.5, dotR, 0, Math.PI * 2)  // F線と第5線の間
   ctx.fill()
   ctx.beginPath()
-  ctx.arc(dotX, s * 1, dotR, 0, Math.PI * 2)
+  ctx.arc(dotX, s * 2.5, dotR, 0, Math.PI * 2)   // F線と第3線の間
   ctx.fill()
 
   ctx.restore()
