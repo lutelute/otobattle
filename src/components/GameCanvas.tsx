@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import { useGameLoop } from '../hooks/useGameLoop'
 import { useKeyboardInput } from '../hooks/useKeyboardInput'
 import { useAudio } from '../hooks/useAudio'
@@ -12,10 +12,18 @@ import { TitleScreen } from './TitleScreen'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
 import { saveBestScore } from '../utils/storage'
+import { setSmuflReady } from '../game/renderer'
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+
+  // Bravuraフォント読み込み検出
+  useEffect(() => {
+    document.fonts.load('32px Bravura').then(() => {
+      setSmuflReady(true)
+    }).catch(() => {})
+  }, [])
 
   useCanvasSize(canvasRef, containerRef)
   const { hud, inputRef, stateRef, startGame, goToTitle } = useGameLoop(canvasRef)

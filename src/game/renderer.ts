@@ -3,6 +3,13 @@ import { NOTES, getStaffPlacement } from './notes'
 import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION } from './constants'
 import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef } from './musicGlyphs'
 
+let smuflReady = false
+export function setSmuflReady(ready: boolean) { smuflReady = ready }
+
+// SMuFL codepoints
+const SMUFL_TREBLE_CLEF = '\uE050'
+const SMUFL_BASS_CLEF = '\uE062'
+
 // テーマカラー
 function themeColors(theme: DisplaySettings['theme']) {
   if (theme === 'light') {
@@ -192,15 +199,32 @@ function drawEnemy(
     ctx.stroke()
   }
 
-  // ── 記号（ト音記号 / ヘ音記号）── パス描画（フォント不要）
+  // ── 記号（ト音記号 / ヘ音記号）──
   const clefX = -staffW / 2 + 16
 
-  if (isBass) {
-    const f3LineY = staffTop + 1 * lineGap
-    drawBassClef(ctx, clefX, f3LineY, staffH, c.clefColor)
+  if (smuflReady) {
+    // Bravura SMuFLフォント（正確な音楽記号）
+    ctx.fillStyle = c.clefColor
+    ctx.textAlign = 'center'
+    ctx.font = `${lineGap * 4}px Bravura`
+    ctx.textBaseline = 'alphabetic'
+
+    if (isBass) {
+      const f3LineY = staffTop + 1 * lineGap
+      ctx.fillText(SMUFL_BASS_CLEF, clefX, f3LineY)
+    } else {
+      const g4LineY = staffTop + 3 * lineGap
+      ctx.fillText(SMUFL_TREBLE_CLEF, clefX, g4LineY)
+    }
   } else {
-    const g4LineY = staffTop + 3 * lineGap
-    drawTrebleClef(ctx, clefX, g4LineY, staffH, c.clefColor)
+    // フォールバック: Canvas パス描画
+    if (isBass) {
+      const f3LineY = staffTop + 1 * lineGap
+      drawBassClef(ctx, clefX, f3LineY, staffH, c.clefColor)
+    } else {
+      const g4LineY = staffTop + 3 * lineGap
+      drawTrebleClef(ctx, clefX, g4LineY, staffH, c.clefColor)
+    }
   }
 
   // ── 音符 ──
