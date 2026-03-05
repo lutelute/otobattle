@@ -21,8 +21,8 @@ html, body, #root {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #1a1a2e;
-  color: #eee;
+  background: #0f0f23;
+  color: #e2e8f0;
   font-family: var(--pixel-font);
 }
 
