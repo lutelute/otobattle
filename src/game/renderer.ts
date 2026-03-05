@@ -1,7 +1,7 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
 import { NOTES, getStaffPlacement } from './notes'
 import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS } from './constants'
-import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef } from './musicGlyphs'
+import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef, drawAltoClef } from './musicGlyphs'
 
 let smuflReady = false
 export function setSmuflReady(ready: boolean) { smuflReady = ready }
@@ -9,6 +9,7 @@ export function setSmuflReady(ready: boolean) { smuflReady = ready }
 // SMuFL codepoints
 const SMUFL_TREBLE_CLEF = '\uE050'
 const SMUFL_BASS_CLEF = '\uE062'
+const SMUFL_ALTO_CLEF = '\uE05C'
 
 // テーマカラー
 function themeColors(theme: DisplaySettings['theme']) {
@@ -164,8 +165,6 @@ function drawEnemy(
   const noteInfo = NOTES[enemy.note]
   const placement = getStaffPlacement(enemy.note, enemy.clef)
   const { pos, radius } = enemy
-  const isBass = enemy.clef === 'bass'
-
   ctx.save()
   ctx.translate(pos.x, pos.y)
 
@@ -205,7 +204,7 @@ function drawEnemy(
     ctx.stroke()
   }
 
-  // ── 記号（ト音記号 / ヘ音記号）──
+  // ── 記号（ト音記号 / ヘ音記号 / ハ音記号）──
   const clefX = -staffW / 2 + 16
 
   if (smuflReady) {
@@ -215,18 +214,24 @@ function drawEnemy(
     ctx.font = `${lineGap * 4}px Bravura`
     ctx.textBaseline = 'alphabetic'
 
-    if (isBass) {
+    if (enemy.clef === 'bass') {
       const f3LineY = staffTop + 1 * lineGap
       ctx.fillText(SMUFL_BASS_CLEF, clefX, f3LineY)
+    } else if (enemy.clef === 'alto') {
+      const c4LineY = staffTop + 2 * lineGap
+      ctx.fillText(SMUFL_ALTO_CLEF, clefX, c4LineY)
     } else {
       const g4LineY = staffTop + 3 * lineGap
       ctx.fillText(SMUFL_TREBLE_CLEF, clefX, g4LineY)
     }
   } else {
     // フォールバック: Canvas パス描画
-    if (isBass) {
+    if (enemy.clef === 'bass') {
       const f3LineY = staffTop + 1 * lineGap
       drawBassClef(ctx, clefX, f3LineY, staffH, c.clefColor)
+    } else if (enemy.clef === 'alto') {
+      const c4LineY = staffTop + 2 * lineGap
+      drawAltoClef(ctx, clefX, c4LineY, staffH, c.clefColor)
     } else {
       const g4LineY = staffTop + 3 * lineGap
       drawTrebleClef(ctx, clefX, g4LineY, staffH, c.clefColor)
@@ -240,8 +245,11 @@ function drawEnemy(
 
   // 加線
   if (placement.needsLedger) {
-    if (isBass) {
+    if (enemy.clef === 'bass') {
       // ヘ音記号: B3は第5線の上 → 加線は staffTop - lineGap
+      drawLedgerLine(ctx, noteX, staffTop - lineGap, 22, c.staffLine)
+    } else if (enemy.clef === 'alto') {
+      // ハ音記号: A4/B4は第5線の上 → 加線は staffTop - lineGap
       drawLedgerLine(ctx, noteX, staffTop - lineGap, 22, c.staffLine)
     } else {
       // ト音記号: C4は第1線の下 → 加線は staffBottom + lineGap
