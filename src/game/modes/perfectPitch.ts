@@ -1,4 +1,4 @@
-import type { GameState, GameInput, NoteName } from '../types'
+import type { GameState, GameInput, NoteName, NoteRangeConfig } from '../types'
 import type { PerfectPitchState } from './types'
 import {
   CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT,
@@ -7,6 +7,7 @@ import {
 } from '../constants'
 import { updateParticles } from '../collision'
 import { ALL_NOTE_NAMES, WHITE_NOTE_NAMES } from '../notes'
+import { filterNotesByRange } from '../enemies'
 import { playReferenceNote, replayReferenceNote } from '../../audio/noteSynth'
 
 // ─── Internal extended state ─────────────────────────────────────────
@@ -55,24 +56,29 @@ function setPerfectPitchData(state: GameState, data: PerfectPitchData): void {
  * Wave N: first min(N+2, 12) notes from chromatic scale
  *
  * Only uses white keys until all 7 are unlocked, then adds sharps.
+ * Optionally filtered by noteRange configuration.
  */
-function buildAllowedNotes(wave: number): NoteName[] {
+function buildAllowedNotes(wave: number, noteRange?: NoteRangeConfig): NoteName[] {
   const noteCount = Math.min(wave + 2, 12)
 
+  let notes: NoteName[]
   if (noteCount <= 7) {
     // Use white keys first: C, D, E, F, G, A, B
-    return WHITE_NOTE_NAMES.slice(0, noteCount)
+    notes = WHITE_NOTE_NAMES.slice(0, noteCount)
+  } else {
+    // All white keys + add sharps progressively
+    const sharpsNeeded = noteCount - 7
+    const sharpOrder: NoteName[] = ['F#', 'C#', 'G#', 'D#', 'A#']
+    const sharps = sharpOrder.slice(0, sharpsNeeded)
+
+    // Return in chromatic order for consistency
+    notes = ALL_NOTE_NAMES.filter(
+      n => WHITE_NOTE_NAMES.includes(n) || sharps.includes(n),
+    )
   }
 
-  // All white keys + add sharps progressively
-  const sharpsNeeded = noteCount - 7
-  const sharpOrder: NoteName[] = ['F#', 'C#', 'G#', 'D#', 'A#']
-  const sharps = sharpOrder.slice(0, sharpsNeeded)
-
-  // Return in chromatic order for consistency
-  return ALL_NOTE_NAMES.filter(
-    n => WHITE_NOTE_NAMES.includes(n) || sharps.includes(n),
-  )
+  // Filter by noteRange configuration
+  return filterNotesByRange(notes, noteRange)
 }
 
 /**
@@ -124,13 +130,20 @@ function pickRandomNote(allowedNotes: NoteName[], previousNote: NoteName): NoteN
 
 /**
  * Start a new challenge: pick target note, reset timers, trigger audio.
+ * timePressure affects the timeout (higher = less time).
+ * noteRange filters the available notes.
  */
-function startNewChallenge(data: PerfectPitchData, wave: number): void {
+function startNewChallenge(
+  data: PerfectPitchData,
+  wave: number,
+  timePressure: number = 1.0,
+  noteRange?: NoteRangeConfig,
+): void {
   const previousNote = data.targetNote
-  data.allowedNotes = buildAllowedNotes(wave)
+  data.allowedNotes = buildAllowedNotes(wave, noteRange)
   data.targetNote = pickRandomNote(data.allowedNotes, previousNote)
   data.replaysRemaining = PERFECT_PITCH_REPLAY_LIMIT
-  data.timeRemaining = PERFECT_PITCH_TIMEOUT
+  data.timeRemaining = PERFECT_PITCH_TIMEOUT / timePressure
   data.guessCount = 0
   data.challengePhase = 'playing'
   data.isPlaying = true
@@ -144,7 +157,7 @@ function advanceToNextWave(state: GameState, data: PerfectPitchData): void {
   state.wave++
   data.challengesInWave = 0
   data.challengesPerWave = Math.min(5 + state.wave - 1, 10)
-  data.allowedNotes = buildAllowedNotes(state.wave)
+  data.allowedNotes = buildAllowedNotes(state.wave, state.noteRange)
 
   // Update progress
   const maxWaves = 20
@@ -183,7 +196,8 @@ export function updatePerfectPitchMode(
     state.waveAnnounceTimer -= dt
     if (state.waveAnnounceTimer <= 0) {
       state.phase = 'playing'
-      startNewChallenge(data, state.wave)
+      const timePressure = state.difficulty?.timePressure ?? 1.0
+      startNewChallenge(data, state.wave, timePressure, state.noteRange)
       setPerfectPitchData(state, data)
     }
     updateParticles(state.particles, dt)
@@ -342,7 +356,8 @@ export function updatePerfectPitchMode(
         advanceToNextWave(state, data)
       } else {
         // Start next challenge
-        startNewChallenge(data, state.wave)
+        const timePressure = state.difficulty?.timePressure ?? 1.0
+        startNewChallenge(data, state.wave, timePressure, state.noteRange)
         setPerfectPitchData(state, data)
       }
     } else {

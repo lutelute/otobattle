@@ -1,10 +1,11 @@
-import type { GameMode, DisplaySettings } from '../game/types'
+import type { GameMode, DisplaySettings, NoteName, NoteRangeConfig } from '../game/types'
 import { type ProgressionData, DEFAULT_PROGRESSION } from '../game/progression'
 
 const BEST_SCORE_KEY = 'otobattle_best_score'
 const PROGRESSION_KEY = 'otobattle_progression'
 const MODE_SCORES_KEY = 'otobattle_mode_scores'
 const SETTINGS_KEY = 'otobattle_settings'
+const GAME_SETTINGS_KEY = 'otobattle_game_settings'
 
 // ── Best score (legacy) ─────────────────────────────────────────
 
@@ -111,5 +112,41 @@ export function loadDisplaySettings(): DisplaySettings {
     return { ...DEFAULT_DISPLAY_SETTINGS }
   } catch {
     return { ...DEFAULT_DISPLAY_SETTINGS }
+  }
+}
+
+// ── Game settings (difficulty + note range) ────────────────────
+
+export interface StoredGameSettings {
+  difficulty: string    // 'easy' | 'normal' | 'hard'
+  noteRange: NoteRangeConfig
+}
+
+const VALID_DIFFICULTIES = ['easy', 'normal', 'hard']
+const DEFAULT_GAME_SETTINGS: StoredGameSettings = {
+  difficulty: 'normal',
+  noteRange: { minNote: 'C' as NoteName, maxNote: 'B' as NoteName },
+}
+
+export function saveGameSettings(difficulty: string, noteRange: NoteRangeConfig): void {
+  localStorage.setItem(GAME_SETTINGS_KEY, JSON.stringify({ difficulty, noteRange }))
+}
+
+export function loadGameSettings(): StoredGameSettings {
+  const raw = localStorage.getItem(GAME_SETTINGS_KEY)
+  if (!raw) return { ...DEFAULT_GAME_SETTINGS, noteRange: { ...DEFAULT_GAME_SETTINGS.noteRange } }
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>
+    const difficulty = typeof parsed.difficulty === 'string' && VALID_DIFFICULTIES.includes(parsed.difficulty)
+      ? parsed.difficulty
+      : 'normal'
+    const nr = parsed.noteRange as Record<string, unknown> | undefined
+    const noteRange: NoteRangeConfig = (
+      nr && typeof nr.minNote === 'string' && typeof nr.maxNote === 'string'
+    ) ? { minNote: nr.minNote as NoteName, maxNote: nr.maxNote as NoteName }
+      : { minNote: 'C' as NoteName, maxNote: 'B' as NoteName }
+    return { difficulty, noteRange }
+  } catch {
+    return { ...DEFAULT_GAME_SETTINGS, noteRange: { ...DEFAULT_GAME_SETTINGS.noteRange } }
   }
 }

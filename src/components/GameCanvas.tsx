@@ -15,7 +15,7 @@ import type { DifficultyPreset } from './DifficultyPanel'
 import { MidiFileUpload } from './MidiFileUpload'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
-import { saveBestScore, loadProgression, saveProgression, saveModeBestScore, getAllModeBestScores } from '../utils/storage'
+import { saveBestScore, loadProgression, saveProgression, saveModeBestScore, getAllModeBestScores, saveGameSettings, loadGameSettings, saveDisplaySettings } from '../utils/storage'
 import { calculateXP, addXP } from '../game/progression'
 import type { ProgressionData } from '../game/progression'
 import { setSmuflReady } from '../game/renderer'
@@ -56,8 +56,15 @@ export function GameCanvas() {
   const [newLevel, setNewLevel] = useState(0)
 
   // Mode selection state (difficulty & note range are chosen before starting a game)
-  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPreset>('normal')
-  const [selectedNoteRange, setSelectedNoteRange] = useState<NoteRangeConfig>({ minNote: 'C', maxNote: 'B' })
+  // Load persisted settings from localStorage as initial values
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPreset>(() => {
+    const saved = loadGameSettings()
+    return (saved.difficulty as DifficultyPreset) || 'normal'
+  })
+  const [selectedNoteRange, setSelectedNoteRange] = useState<NoteRangeConfig>(() => {
+    const saved = loadGameSettings()
+    return saved.noteRange || { minNote: 'C', maxNote: 'B' }
+  })
 
   // Full Song mode: MIDI file upload state
   const [showMidiUpload, setShowMidiUpload] = useState(false)
@@ -68,6 +75,17 @@ export function GameCanvas() {
       setShowMidiUpload(false)
     }
   }, [hud.phase])
+
+  // Persist difficulty/noteRange to localStorage on change
+  const handleDifficultyChange = useCallback((preset: DifficultyPreset) => {
+    setSelectedDifficulty(preset)
+    saveGameSettings(preset, selectedNoteRange)
+  }, [selectedNoteRange])
+
+  const handleNoteRangeChange = useCallback((range: NoteRangeConfig) => {
+    setSelectedNoteRange(range)
+    saveGameSettings(selectedDifficulty, range)
+  }, [selectedDifficulty])
 
   const handleGoToModeSelect = useCallback(async () => {
     await ensureAudioContext()
@@ -173,12 +191,15 @@ export function GameCanvas() {
                 const order: import('../game/types').NotationFormat[] = ['abc', 'solfege', 'staff']
                 const idx = order.indexOf(stateRef.current.settings.notationFormat)
                 stateRef.current.settings.notationFormat = order[(idx + 1) % order.length]
+                saveDisplaySettings({ ...stateRef.current.settings })
               }}
               onToggleTheme={() => {
                 stateRef.current.settings.theme = stateRef.current.settings.theme === 'dark' ? 'light' : 'dark'
+                saveDisplaySettings({ ...stateRef.current.settings })
               }}
               onChangeInstrument={(inst) => {
                 stateRef.current.settings.instrument = inst
+                saveDisplaySettings({ ...stateRef.current.settings })
               }}
               onHome={goToTitle}
               onReplay={() => requestReplay(stateRef.current)}
@@ -208,8 +229,8 @@ export function GameCanvas() {
             <DifficultyPanel
               difficulty={selectedDifficulty}
               noteRange={selectedNoteRange}
-              onChangeDifficulty={setSelectedDifficulty}
-              onChangeNoteRange={setSelectedNoteRange}
+              onChangeDifficulty={handleDifficultyChange}
+              onChangeNoteRange={handleNoteRangeChange}
             />
           </ModeSelectScreen>
         )}

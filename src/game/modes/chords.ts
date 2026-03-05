@@ -186,8 +186,9 @@ function advanceToNextWave(state: GameState, data: ChordsData): void {
   // Update unlocked types
   data.unlockedTypes = getAvailableChordTypes(state.wave)
 
-  // Increase difficulty
-  state.enemySpeed = ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT
+  // Increase difficulty (apply speed multiplier from difficulty settings)
+  const speedMult = state.difficulty?.speedMultiplier ?? 1.0
+  state.enemySpeed = (ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT) * speedMult
 
   // Update progress based on wave (approximate)
   const maxWaves = 20

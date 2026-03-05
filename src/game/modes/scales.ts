@@ -214,8 +214,9 @@ function advanceToNextWave(state: GameState, data: ScalesData): void {
   data.currentDegree = 0
   data.scaleComplete = false
 
-  // Increase difficulty
-  state.enemySpeed = ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT
+  // Increase difficulty (apply speed multiplier from difficulty settings)
+  const speedMult = state.difficulty?.speedMultiplier ?? 1.0
+  state.enemySpeed = (ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT) * speedMult
 
   // Update progress
   data.progress = data.keyIndex / SCALE_PROGRESSION.length

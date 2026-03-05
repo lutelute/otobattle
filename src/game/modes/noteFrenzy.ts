@@ -38,7 +38,7 @@ export function updateNoteFrenzyMode(
       const cx = CANVAS_BASE_WIDTH / 2
       const cy = CANVAS_BASE_HEIGHT / 2
       const newEnemies = spawnWaveEnemies(
-        state.enemiesPerWave, cx, cy, state.enemySpeed, state.wave,
+        state.enemiesPerWave, cx, cy, state.enemySpeed, state.wave, state.noteRange,
       )
       state.enemies.push(...newEnemies)
     }
@@ -109,8 +109,10 @@ export function updateNoteFrenzyMode(
     state.waveTimer -= dt
     if (state.waveTimer <= 0) {
       state.wave++
-      state.enemiesPerWave = ENEMIES_BASE_COUNT + (state.wave - 1) * ENEMIES_INCREMENT
-      state.enemySpeed = ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT
+      const spawnMult = state.difficulty?.spawnRateMultiplier ?? 1.0
+      const speedMult = state.difficulty?.speedMultiplier ?? 1.0
+      state.enemiesPerWave = Math.ceil((ENEMIES_BASE_COUNT + (state.wave - 1) * ENEMIES_INCREMENT) * spawnMult)
+      state.enemySpeed = (ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT) * speedMult
       state.phase = 'waveAnnounce'
       state.waveAnnounceTimer = WAVE_ANNOUNCE_DURATION
       state.waveTimer = WAVE_INTERVAL

@@ -49,8 +49,8 @@ export function createInitialState(
     score: 0,
     wave: 0,
     waveTimer: 0.5, // short delay before first wave
-    enemiesPerWave: ENEMIES_BASE_COUNT,
-    enemySpeed: ENEMY_BASE_SPEED,
+    enemiesPerWave: Math.ceil(ENEMIES_BASE_COUNT * (difficulty?.spawnRateMultiplier ?? 1.0)),
+    enemySpeed: ENEMY_BASE_SPEED * (difficulty?.speedMultiplier ?? 1.0),
     nextEnemyId: 0,
     phase: 'playing',
     waveAnnounceTimer: 0,
