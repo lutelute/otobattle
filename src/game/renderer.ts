@@ -1,14 +1,7 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
 import { NOTES, getStaffPlacement } from './notes'
 import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION } from './constants'
-import { drawSharp, drawNoteHead, drawStem, drawLedgerLine } from './musicGlyphs'
-
-let smuflReady = false
-export function setSmuflReady(ready: boolean) { smuflReady = ready }
-
-// SMuFL codepoints
-const SMUFL_TREBLE_CLEF = '\uE050'
-const SMUFL_BASS_CLEF = '\uE062'
+import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef } from './musicGlyphs'
 
 // テーマカラー
 function themeColors(theme: DisplaySettings['theme']) {
@@ -199,30 +192,15 @@ function drawEnemy(
     ctx.stroke()
   }
 
-  // ── 記号（ト音記号 / ヘ音記号）──
+  // ── 記号（ト音記号 / ヘ音記号）── パス描画（フォント不要）
   const clefX = -staffW / 2 + 16
 
-  if (smuflReady) {
-    ctx.fillStyle = c.clefColor
-    ctx.textAlign = 'center'
-    ctx.font = `${lineGap * 4}px Bravura`
-    ctx.textBaseline = 'alphabetic'
-
-    if (isBass) {
-      // ヘ音記号: 基準は第4線(F3) = staffTop + 1 * lineGap
-      const f3LineY = staffTop + 1 * lineGap
-      ctx.fillText(SMUFL_BASS_CLEF, clefX, f3LineY)
-    } else {
-      // ト音記号: 基準はG4線 = staffTop + 3 * lineGap
-      const g4LineY = staffTop + 3 * lineGap
-      ctx.fillText(SMUFL_TREBLE_CLEF, clefX, g4LineY)
-    }
+  if (isBass) {
+    const f3LineY = staffTop + 1 * lineGap
+    drawBassClef(ctx, clefX, f3LineY, staffH, c.clefColor)
   } else {
-    ctx.fillStyle = c.clefColor
-    ctx.font = `${lineGap * 5}px serif`
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(isBass ? '𝄢' : '𝄞', clefX, staffTop + staffH / 2)
+    const g4LineY = staffTop + 3 * lineGap
+    drawTrebleClef(ctx, clefX, g4LineY, staffH, c.clefColor)
   }
 
   // ── 音符 ──

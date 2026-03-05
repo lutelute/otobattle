@@ -87,6 +87,64 @@ export function drawTrebleClef(
 }
 
 /**
+ * ヘ音記号（Bass Clef / F Clef）
+ * F線を基準にして描画。2つのドット + カーブ
+ *
+ * @param x 中心X
+ * @param y 第4線(F3線)のY座標
+ * @param h 五線の総高さ (lineGap * 4)
+ */
+export function drawBassClef(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  h: number,
+  color: string,
+) {
+  ctx.save()
+  ctx.translate(x, y)
+  const s = h / 20
+
+  ctx.strokeStyle = color
+  ctx.fillStyle = color
+  ctx.lineWidth = s * 1.8
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
+  // ── メインカーブ（F線から上にカーブして下に降りる）──
+  ctx.beginPath()
+  ctx.moveTo(s * -2, s * -6)
+  ctx.bezierCurveTo(
+    s * 2, s * -8,
+    s * 6, s * -6,
+    s * 6, s * -2,
+  )
+  ctx.bezierCurveTo(
+    s * 6, s * 2,
+    s * 2, s * 6,
+    s * -4, s * 8,
+  )
+  ctx.stroke()
+
+  // ── 左端の丸い点（F線上）──
+  ctx.beginPath()
+  ctx.arc(s * -2, s * -6, s * 1.8, 0, Math.PI * 2)
+  ctx.fill()
+
+  // ── 2つのドット（F線の上下）──
+  const dotX = s * 8
+  const dotR = s * 1.2
+  ctx.beginPath()
+  ctx.arc(dotX, s * -3, dotR, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.arc(dotX, s * 1, dotR, 0, Math.PI * 2)
+  ctx.fill()
+
+  ctx.restore()
+}
+
+/**
  * シャープ記号（♯）
  * 2本の太い横線（やや右上がり）+ 2本の細い縦線
  */
