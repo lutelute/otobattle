@@ -17,6 +17,7 @@ import { ensureAudioContext } from '../audio/audioContext'
 import { saveBestScore } from '../utils/storage'
 import { setSmuflReady } from '../game/renderer'
 import type { GameMode, NoteRangeConfig } from '../game/types'
+import { requestReplay } from '../game/modes/perfectPitch'
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -112,6 +113,7 @@ export function GameCanvas() {
                 stateRef.current.settings.instrument = inst
               }}
               onHome={goToTitle}
+              onReplay={() => requestReplay(stateRef.current)}
             />
             <NoteIndicator note={hud.lastNoteAttack} micNote={detectedNote} />
           </>

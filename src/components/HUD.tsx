@@ -1,5 +1,5 @@
 import type { DisplaySettings, InstrumentType, GameMode, ModeState } from '../game/types'
-import type { ScalesState, ChordsState } from '../game/modes/types'
+import type { ScalesState, ChordsState, PerfectPitchState } from '../game/modes/types'
 import { INSTRUMENT_PROFILES } from '../audio/pitchDetector'
 
 const INSTRUMENT_ORDER: InstrumentType[] = ['piano', 'violin', 'viola', 'cello', 'guitar', 'flute', 'voice']
@@ -23,9 +23,10 @@ interface HUDProps {
   onToggleTheme: () => void
   onChangeInstrument: (inst: InstrumentType) => void
   onHome: () => void
+  onReplay?: () => void
 }
 
-export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, onCycleNotation, onToggleTheme, onChangeInstrument, onHome }: HUDProps) {
+export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, onCycleNotation, onToggleTheme, onChangeInstrument, onHome, onReplay }: HUDProps) {
   const cycleInstrument = () => {
     const idx = INSTRUMENT_ORDER.indexOf(settings.instrument)
     const next = INSTRUMENT_ORDER[(idx + 1) % INSTRUMENT_ORDER.length]
@@ -139,6 +140,45 @@ export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, 
             </div>
           )
         })()}
+        {/* Perfect Pitch mode: streak, challenges, replays */}
+        {mode === 'perfectPitch' && modeState && (() => {
+          const ppd = modeState.data as unknown as PerfectPitchState & {
+            challengesCompleted: number
+            challengesPerWave: number
+            challengesInWave: number
+            bestStreak: number
+            replaysRemaining: number
+            challengePhase: string
+          }
+          return (
+            <div className="flex flex-col gap-0.5">
+              <span
+                className="text-sm font-bold"
+                style={{ color: '#f59e0b', textShadow }}
+              >
+                Streak: {ppd.streak}
+              </span>
+              <span
+                className="text-xs"
+                style={{ color: isDark ? '#94a3b8' : '#64748b', textShadow }}
+              >
+                {ppd.challengesCompleted} completed
+              </span>
+              {ppd.challengePhase === 'waiting' && onReplay && ppd.replaysRemaining > 0 && (
+                <button
+                  onClick={onReplay}
+                  className={`mt-1 px-2 py-0.5 text-[10px] rounded pointer-events-auto ${
+                    isDark
+                      ? 'bg-white/15 text-white/90 hover:bg-white/25 border border-white/10'
+                      : 'bg-black/10 text-black/80 hover:bg-black/20 border border-black/10'
+                  }`}
+                >
+                  Replay ({ppd.replaysRemaining})
+                </button>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* Right panel: Score + Combo + Controls */}
@@ -167,7 +207,7 @@ export function HUD({ hp, maxHp, score, wave, combo, settings, mode, modeState, 
                   textShadow: `0 0 8px ${combo >= 10 ? 'rgba(249,115,22,0.6)' : 'rgba(251,146,60,0.4)'}`,
                 }}
               >
-                {combo} COMBO!
+                {combo} {mode === 'perfectPitch' ? 'STREAK!' : 'COMBO!'}
               </span>
             </div>
           )}
