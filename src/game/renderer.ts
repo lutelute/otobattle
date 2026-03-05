@@ -1,6 +1,6 @@
 import type { GameState, Enemy, DisplaySettings } from './types'
 import { NOTES, getStaffPlacement } from './notes'
-import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS } from './constants'
+import { CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT, PLAYER_RADIUS, WAVE_ANNOUNCE_DURATION, COLORS, BEAM_ZIGZAG_AMPLITUDE, BEAM_ZIGZAG_SEGMENTS, BEAM_LIGHTNING_SEGMENTS } from './constants'
 import { drawSharp, drawNoteHead, drawStem, drawLedgerLine, drawTrebleClef, drawBassClef, drawAltoClef } from './musicGlyphs'
 
 let smuflReady = false
@@ -287,33 +287,98 @@ function drawEnemy(
   ctx.restore()
 }
 
+/**
+ * ビームパスのポイント列を生成する
+ * straight: 始点→終点の直線
+ * zigzag: 交互に垂直方向へオフセットするセグメント
+ * lightning: より少ないセグメントで大きなランダムオフセット
+ */
+function generateBeamPath(beam: import('./types').Beam): { x: number; y: number }[] {
+  const style = beam.style ?? 'straight'
+
+  if (style === 'straight') {
+    return [beam.from, beam.to]
+  }
+
+  const dx = beam.to.x - beam.from.x
+  const dy = beam.to.y - beam.from.y
+  const len = Math.sqrt(dx * dx + dy * dy)
+  if (len === 0) return [beam.from, beam.to]
+
+  // 垂直方向の単位ベクトル
+  const perpX = -dy / len
+  const perpY = dx / len
+
+  const segments = style === 'zigzag' ? BEAM_ZIGZAG_SEGMENTS : BEAM_LIGHTNING_SEGMENTS
+  const amplitude = style === 'zigzag' ? BEAM_ZIGZAG_AMPLITUDE : BEAM_ZIGZAG_AMPLITUDE * 2.5
+
+  const points: { x: number; y: number }[] = [{ x: beam.from.x, y: beam.from.y }]
+
+  // ビーム位置ベースのシード値（同じビームは同じパスを描く）
+  const seed = Math.abs(beam.from.x * 73 + beam.from.y * 137 + beam.to.x * 59 + beam.to.y * 97)
+
+  for (let i = 1; i < segments; i++) {
+    const t = i / segments
+    const baseX = beam.from.x + dx * t
+    const baseY = beam.from.y + dy * t
+
+    let offset: number
+    if (style === 'zigzag') {
+      // 均一な交互オフセット
+      offset = (i % 2 === 0 ? 1 : -1) * amplitude
+    } else {
+      // lightning: 疑似ランダムオフセット（大きめ）
+      const pseudoRandom = Math.sin(seed + i * 12.9898) * 43758.5453
+      offset = (pseudoRandom - Math.floor(pseudoRandom) - 0.5) * 2 * amplitude
+    }
+
+    points.push({
+      x: baseX + perpX * offset,
+      y: baseY + perpY * offset,
+    })
+  }
+
+  points.push({ x: beam.to.x, y: beam.to.y })
+  return points
+}
+
+/** ポイント列を結ぶパスをストロークする */
+function strokeBeamPath(ctx: CanvasRenderingContext2D, points: { x: number; y: number }[]) {
+  if (points.length === 0) return
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i].x, points[i].y)
+  }
+  ctx.stroke()
+}
+
 function drawBeam(ctx: CanvasRenderingContext2D, beam: import('./types').Beam) {
   const alpha = beam.life / beam.maxLife
+  const points = generateBeamPath(beam)
+
   ctx.save()
+  ctx.lineCap = 'round'
+  ctx.lineJoin = 'round'
+
   // 太いグロー
   ctx.globalAlpha = alpha * 0.3
   ctx.strokeStyle = beam.color
   ctx.lineWidth = 8
-  ctx.beginPath()
-  ctx.moveTo(beam.from.x, beam.from.y)
-  ctx.lineTo(beam.to.x, beam.to.y)
-  ctx.stroke()
-  // 細いコア
+  strokeBeamPath(ctx, points)
+
+  // 細いコア（白）
   ctx.globalAlpha = alpha * 0.9
   ctx.strokeStyle = '#ffffff'
   ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.moveTo(beam.from.x, beam.from.y)
-  ctx.lineTo(beam.to.x, beam.to.y)
-  ctx.stroke()
+  strokeBeamPath(ctx, points)
+
   // 中間色
   ctx.globalAlpha = alpha * 0.7
   ctx.strokeStyle = beam.color
   ctx.lineWidth = 4
-  ctx.beginPath()
-  ctx.moveTo(beam.from.x, beam.from.y)
-  ctx.lineTo(beam.to.x, beam.to.y)
-  ctx.stroke()
+  strokeBeamPath(ctx, points)
+
   ctx.restore()
 }
 
