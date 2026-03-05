@@ -3,7 +3,7 @@ import { WHITE_NOTE_NAMES, BLACK_NOTE_NAMES } from './notes'
 import {
   CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT,
   ENEMY_BASE_RADIUS, SPAWN_MARGIN, SHARP_UNLOCK_WAVE, BASS_CLEF_UNLOCK_WAVE,
-  INVADER_UNLOCK_WAVE, INVADER_SPEED_X, INVADER_DROP_STEP,
+  ALTO_CLEF_UNLOCK_WAVE, INVADER_UNLOCK_WAVE, INVADER_SPEED_X, INVADER_DROP_STEP,
   INVADER_MARGIN, INVADER_ROW_START_Y,
 } from './constants'
 import { randomFloat, randomInt, normalize, scale } from '../utils/math'
@@ -47,8 +47,13 @@ export function spawnEnemy(
   const pool = useSharp ? BLACK_NOTE_NAMES : WHITE_NOTE_NAMES
   const note = pool[randomInt(0, pool.length - 1)]
 
-  // Pick clef: bass clef unlocked after BASS_CLEF_UNLOCK_WAVE
-  const clef: ClefType = (wave >= BASS_CLEF_UNLOCK_WAVE && Math.random() < 0.4) ? 'bass' : 'treble'
+  // Pick clef: bass clef unlocked after BASS_CLEF_UNLOCK_WAVE, alto after ALTO_CLEF_UNLOCK_WAVE
+  let clef: ClefType = 'treble'
+  if (wave >= ALTO_CLEF_UNLOCK_WAVE && Math.random() < 0.3) {
+    clef = 'alto'
+  } else if (wave >= BASS_CLEF_UNLOCK_WAVE && Math.random() < 0.4) {
+    clef = 'bass'
+  }
 
   const shapes: EnemyShape[] = ['square', 'diamond', 'circle', 'triangle', 'hexagon', 'cross']
   const id = ++globalEnemyId
@@ -81,7 +86,12 @@ export function spawnInvaderRow(wave: number): Enemy[] {
   for (let i = 0; i < count; i++) {
     const id = ++globalEnemyId
     const note = pool[randomInt(0, pool.length - 1)]
-    const clef: ClefType = (wave >= BASS_CLEF_UNLOCK_WAVE && Math.random() < 0.4) ? 'bass' : 'treble'
+    let clef: ClefType = 'treble'
+    if (wave >= ALTO_CLEF_UNLOCK_WAVE && Math.random() < 0.3) {
+      clef = 'alto'
+    } else if (wave >= BASS_CLEF_UNLOCK_WAVE && Math.random() < 0.4) {
+      clef = 'bass'
+    }
     enemies.push({
       id,
       pos: { x: INVADER_MARGIN + spacing * (i + 1), y: startY },
