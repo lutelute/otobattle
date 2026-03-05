@@ -131,8 +131,11 @@ export function spawnWaveEnemies(
 }
 
 export function moveEnemies(enemies: Enemy[], dt: number): void {
-  // インベーダー型は隊列全体で連動して動く
-  // まず隊列内で端に到達したかチェック
+  // インベーダー型は隊列全体で連動して動く（全invaderを1グループとして扱う）
+  // NOTE: 現在のゲーム設計では1ウェーブに最大1列のインベーダーのみ生成し、
+  // 全敵が倒されてから次ウェーブが生成されるため、複数列は共存しない。
+
+  // まず隊列内で端に到達したかチェック（予測位置で判定）
   let invaderNeedsDrop = false
   for (const e of enemies) {
     if (!e.alive || e.enemyType !== 'invader' || !e.invaderState) continue
@@ -152,9 +155,13 @@ export function moveEnemies(enemies: Enemy[], dt: number): void {
         // 方向反転 + 一段降下
         e.invaderState.direction = (e.invaderState.direction === 1 ? -1 : 1) as 1 | -1
         e.vel.x = INVADER_SPEED_X * e.invaderState.direction
+        e.invaderState.dropTarget = e.pos.y + INVADER_DROP_STEP
         e.pos.y += INVADER_DROP_STEP
       } else {
         e.pos.x += e.vel.x * dt
+        // 浮動小数点誤差によるマージン超過を防止
+        if (e.pos.x < INVADER_MARGIN) e.pos.x = INVADER_MARGIN
+        else if (e.pos.x > CANVAS_BASE_WIDTH - INVADER_MARGIN) e.pos.x = CANVAS_BASE_WIDTH - INVADER_MARGIN
       }
     } else {
       // 通常敵
