@@ -39,6 +39,8 @@ export interface Enemy {
   shape: EnemyShape   // 個体を区別するための形状
   enemyType: EnemyType
   invaderState?: InvaderState
+  /** コードグループID（Chords モードで同一コードに属する敵を識別） */
+  chordGroupId?: string
 }
 
 /** 敵の形状バリエーション（同じ音でも形で区別可能） */
