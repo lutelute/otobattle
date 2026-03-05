@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 import type { GameInput, NoteName } from '../game/types'
+import { ALL_NOTE_NAMES } from '../game/notes'
 
 interface PianoKeyboardProps {
   inputRef: React.MutableRefObject<GameInput>
@@ -9,6 +10,7 @@ interface PianoKeyboardProps {
   midiConnected?: boolean
   midiDeviceName?: string | null
   midiError?: string | null
+  activeMidiNote?: number | null
 }
 
 // 1オクターブの白鍵ノート名（順番）
@@ -26,9 +28,19 @@ const OCTAVES = 4            // 4オクターブ
 const OCTAVE_START = 2       // C2から開始
 const TOTAL_WHITE_KEYS = WHITE_NOTES.length * OCTAVES  // 28
 
-export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, midiConnected, midiDeviceName, midiError }: PianoKeyboardProps) {
+/** MIDIノート番号をkeyId形式 'note+octave' に変換 (60=C4, 61=C#4, etc.) */
+function midiNoteToKeyId(midiNote: number): string {
+  const noteName = ALL_NOTE_NAMES[midiNote % 12]
+  const octave = Math.floor(midiNote / 12) - 1
+  return `${noteName}${octave}`
+}
+
+export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, midiConnected, midiDeviceName, midiError, activeMidiNote }: PianoKeyboardProps) {
   const [activeKey, setActiveKey] = useState<string | null>(null) // "note-octave" で一意識別
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // MIDIノート番号からkeyId形式に変換してハイライト対象を決定
+  const midiKeyId = activeMidiNote != null ? midiNoteToKeyId(activeMidiNote) : null
 
   const handlePointerDown = (note: NoteName, keyId: string) => {
     inputRef.current = { activeNote: note, source: 'piano' }
@@ -84,7 +96,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           <div className="flex h-full">
             {whiteKeys.map(({ note, octave }) => {
               const keyId = `${note}${octave}`
-              const isActive = activeKey === keyId
+              const isActive = activeKey === keyId || midiKeyId === keyId
               const isC4Octave = octave === 4
               // C4オクターブの鍵盤は少しハイライト
               const highlight = isC4Octave
@@ -137,7 +149,7 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mid
           {/* Black keys */}
           {blackKeys.map(({ note, octave, globalWhiteIdx }) => {
             const keyId = `${note}${octave}`
-            const isActive = activeKey === keyId
+            const isActive = activeKey === keyId || midiKeyId === keyId
             const leftPct = (globalWhiteIdx + 1) * whiteKeyWidthPct - whiteKeyWidthPct * 0.3
             const widthPct = whiteKeyWidthPct * 0.6
 
