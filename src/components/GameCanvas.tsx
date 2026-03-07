@@ -15,7 +15,7 @@ import type { DifficultyPreset } from './DifficultyPanel'
 import { MidiFileUpload } from './MidiFileUpload'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
-import { saveBestScore, loadProgression, saveProgression, saveModeBestScore, getAllModeBestScores, saveGameSettings, loadGameSettings, saveDisplaySettings } from '../utils/storage'
+import { saveBestScore, loadProgression, saveProgression, saveModeBestScore, getAllModeBestScores, saveGameSettings, loadGameSettings, saveDisplaySettings, loadMicSensitivity, saveMicSensitivity } from '../utils/storage'
 import { calculateXP, addXP } from '../game/progression'
 import type { ProgressionData } from '../game/progression'
 import { setSmuflReady } from '../game/renderer'
@@ -43,7 +43,13 @@ export function GameCanvas() {
   useKeyboardInput(inputRef, isPlaying)
   // Disable mic auto-start in Chords mode (mic cannot detect polyphonic chords)
   const isChordsMode = hud.mode === 'chords'
-  const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying && !isChordsMode, hud.settings.instrument)
+  const [savedSensitivity] = useState(() => loadMicSensitivity())
+  const { micEnabled, micError, detectedNote, enableMic, disableMic, micSensitivity, setMicSensitivity } = useAudio(inputRef, isPlaying && !isChordsMode, hud.settings.instrument, savedSensitivity)
+
+  const handleSensitivityChange = useCallback((value: number) => {
+    setMicSensitivity(value)
+    saveMicSensitivity(value)
+  }, [setMicSensitivity])
   const { midiConnected, midiDeviceName, midiError, activeMidiNote } = useMidiInput(inputRef, isPlaying)
 
   // Progression state: loaded from localStorage on mount
@@ -266,6 +272,8 @@ export function GameCanvas() {
           midiDeviceName={midiDeviceName}
           midiError={midiError}
           activeMidiNote={activeMidiNote}
+          micSensitivity={micSensitivity}
+          onChangeMicSensitivity={handleSensitivityChange}
         />
       )}
     </div>

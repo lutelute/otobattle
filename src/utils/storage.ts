@@ -6,6 +6,7 @@ const PROGRESSION_KEY = 'otobattle_progression'
 const MODE_SCORES_KEY = 'otobattle_mode_scores'
 const SETTINGS_KEY = 'otobattle_settings'
 const GAME_SETTINGS_KEY = 'otobattle_game_settings'
+const MIC_SENSITIVITY_KEY = 'otobattle_mic_sensitivity'
 
 // ── Best score (legacy) ─────────────────────────────────────────
 
@@ -130,6 +131,19 @@ const DEFAULT_GAME_SETTINGS: StoredGameSettings = {
 
 export function saveGameSettings(difficulty: string, noteRange: NoteRangeConfig): void {
   localStorage.setItem(GAME_SETTINGS_KEY, JSON.stringify({ difficulty, noteRange }))
+}
+
+// ── Mic sensitivity ────────────────────────────────────────────
+
+export function saveMicSensitivity(value: number): void {
+  localStorage.setItem(MIC_SENSITIVITY_KEY, String(value))
+}
+
+export function loadMicSensitivity(): number {
+  const raw = localStorage.getItem(MIC_SENSITIVITY_KEY)
+  if (!raw) return 1.0
+  const v = parseFloat(raw)
+  return Number.isFinite(v) ? Math.max(0.1, Math.min(3.0, v)) : 1.0
 }
 
 export function loadGameSettings(): StoredGameSettings {

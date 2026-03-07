@@ -13,6 +13,8 @@ interface PianoKeyboardProps {
   midiDeviceName?: string | null
   midiError?: string | null
   activeMidiNote?: number | null
+  micSensitivity?: number
+  onChangeMicSensitivity?: (value: number) => void
 }
 
 // 1オクターブの白鍵ノート名（順番）
@@ -37,7 +39,7 @@ function midiNoteToKeyId(midiNote: number): string {
   return `${noteName}${octave}`
 }
 
-export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, micDisabled, midiConnected, midiDeviceName, midiError, activeMidiNote }: PianoKeyboardProps) {
+export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, micDisabled, midiConnected, midiDeviceName, midiError, activeMidiNote, micSensitivity = 1.0, onChangeMicSensitivity }: PianoKeyboardProps) {
   const [activeKeys, setActiveKeys] = useState<Set<string>>(new Set()) // マルチタッチ対応: 全アクティブkeyId
   const pointerKeyMapRef = useRef<Map<number, { keyId: string; note: NoteName }>>(new Map())
   const containerRef = useRef<HTMLDivElement>(null)
@@ -228,6 +230,23 @@ export function PianoKeyboard({ inputRef, micEnabled, micError, onToggleMic, mic
         >
           MIC {micDisabled ? 'N/A' : micEnabled ? 'ON' : 'OFF'}
         </button>
+        {/* Mic sensitivity slider - shown when mic is enabled */}
+        {!micDisabled && micEnabled && onChangeMicSensitivity && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-slate-400 text-[8px]">感度</span>
+            <input
+              type="range"
+              min="0.2"
+              max="3.0"
+              step="0.1"
+              value={micSensitivity}
+              onChange={(e) => onChangeMicSensitivity(parseFloat(e.target.value))}
+              className="w-14 h-1 accent-[#e94560] cursor-pointer"
+              style={{ WebkitAppearance: 'none', appearance: 'none', background: 'linear-gradient(90deg, #333 0%, #e94560 100%)', borderRadius: '2px' }}
+            />
+            <span className="text-slate-300 text-[8px] w-5 text-right">{micSensitivity.toFixed(1)}</span>
+          </div>
+        )}
         {micDisabled && (
           <span className="text-slate-500 text-[8px]">Chords: MIDI/Key only</span>
         )}
