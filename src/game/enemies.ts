@@ -1,5 +1,5 @@
-import type { Enemy, EnemyShape, ClefType } from './types'
-import { WHITE_NOTE_NAMES, BLACK_NOTE_NAMES } from './notes'
+import type { Enemy, EnemyShape, ClefType, NoteName, NoteRangeConfig } from './types'
+import { ALL_NOTE_NAMES, WHITE_NOTE_NAMES, BLACK_NOTE_NAMES } from './notes'
 import {
   CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT,
   ENEMY_BASE_RADIUS, SPAWN_MARGIN, SHARP_UNLOCK_WAVE, BASS_CLEF_UNLOCK_WAVE,
@@ -11,11 +11,25 @@ import { randomFloat, randomInt, normalize, scale } from '../utils/math'
 let globalEnemyId = 0
 export function resetEnemyId() { globalEnemyId = 0 }
 
+/** Filter a note pool to only include notes within the configured range (chromatic order) */
+export function filterNotesByRange(pool: NoteName[], noteRange?: NoteRangeConfig): NoteName[] {
+  if (!noteRange) return pool
+  const minIdx = ALL_NOTE_NAMES.indexOf(noteRange.minNote)
+  const maxIdx = ALL_NOTE_NAMES.indexOf(noteRange.maxNote)
+  if (minIdx < 0 || maxIdx < 0) return pool
+  const filtered = pool.filter(note => {
+    const idx = ALL_NOTE_NAMES.indexOf(note)
+    return idx >= minIdx && idx <= maxIdx
+  })
+  return filtered.length > 0 ? filtered : pool
+}
+
 export function spawnEnemy(
   centerX: number,
   centerY: number,
   speed: number,
   wave: number,
+  noteRange?: NoteRangeConfig,
 ): Enemy {
   const side = randomInt(0, 3)
   let x: number, y: number
@@ -42,14 +56,17 @@ export function spawnEnemy(
   const dir = normalize({ x: centerX - x, y: centerY - y })
   const vel = scale(dir, speed)
 
-  // Pick note: sharps unlocked after SHARP_UNLOCK_WAVE
+  // Pick note: sharps unlocked after SHARP_UNLOCK_WAVE, filtered by noteRange
   const useSharp = wave >= SHARP_UNLOCK_WAVE && Math.random() < 0.3
-  const pool = useSharp ? BLACK_NOTE_NAMES : WHITE_NOTE_NAMES
+  const basePool = useSharp ? BLACK_NOTE_NAMES : WHITE_NOTE_NAMES
+  const pool = filterNotesByRange(basePool, noteRange)
   const note = pool[randomInt(0, pool.length - 1)]
 
   // Pick clef: bass clef unlocked after BASS_CLEF_UNLOCK_WAVE, alto after ALTO_CLEF_UNLOCK_WAVE
   let clef: ClefType = 'treble'
-  if (wave >= ALTO_CLEF_UNLOCK_WAVE && Math.random() < 0.3) {
+  if (noteRange?.clefFilter) {
+    clef = noteRange.clefFilter
+  } else if (wave >= ALTO_CLEF_UNLOCK_WAVE && Math.random() < 0.3) {
     clef = 'alto'
   } else if (wave >= BASS_CLEF_UNLOCK_WAVE && Math.random() < 0.4) {
     clef = 'bass'
@@ -73,14 +90,15 @@ export function spawnEnemy(
   }
 }
 
-export function spawnInvaderRow(wave: number): Enemy[] {
+export function spawnInvaderRow(wave: number, noteRange?: NoteRangeConfig): Enemy[] {
   const count = randomInt(3, 5)
   const spacing = (CANVAS_BASE_WIDTH - INVADER_MARGIN * 2) / (count + 1)
   const startY = INVADER_ROW_START_Y
   const shapes: EnemyShape[] = ['square', 'diamond', 'circle', 'triangle', 'hexagon', 'cross']
 
   const useSharp = wave >= SHARP_UNLOCK_WAVE && Math.random() < 0.3
-  const pool = useSharp ? BLACK_NOTE_NAMES : WHITE_NOTE_NAMES
+  const basePool = useSharp ? BLACK_NOTE_NAMES : WHITE_NOTE_NAMES
+  const pool = filterNotesByRange(basePool, noteRange)
 
   const enemies: Enemy[] = []
   for (let i = 0; i < count; i++) {
@@ -120,20 +138,21 @@ export function spawnWaveEnemies(
   centerY: number,
   speed: number,
   wave: number,
+  noteRange?: NoteRangeConfig,
 ): Enemy[] {
   const enemies: Enemy[] = []
 
   // 毎ウェーブ、インベーダー列＋通常敵を混在で生成
   if (wave >= INVADER_UNLOCK_WAVE) {
-    enemies.push(...spawnInvaderRow(wave))
+    enemies.push(...spawnInvaderRow(wave, noteRange))
     // 通常敵は1体減らす（インベーダー列がある分）
     const normalCount = Math.max(1, count - 1)
     for (let i = 0; i < normalCount; i++) {
-      enemies.push(spawnEnemy(centerX, centerY, speed, wave))
+      enemies.push(spawnEnemy(centerX, centerY, speed, wave, noteRange))
     }
   } else {
     for (let i = 0; i < count; i++) {
-      enemies.push(spawnEnemy(centerX, centerY, speed, wave))
+      enemies.push(spawnEnemy(centerX, centerY, speed, wave, noteRange))
     }
   }
 

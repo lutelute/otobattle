@@ -1,4 +1,4 @@
-import { useRef, useCallback, useEffect } from 'react'
+import { useRef, useCallback, useEffect, useState } from 'react'
 import { useGameLoop } from '../hooks/useGameLoop'
 import { useKeyboardInput } from '../hooks/useKeyboardInput'
 import { useAudio } from '../hooks/useAudio'
@@ -9,10 +9,20 @@ import { PianoKeyboard } from './PianoKeyboard'
 import { NoteIndicator } from './NoteIndicator'
 import { GameOverScreen } from './GameOverScreen'
 import { TitleScreen } from './TitleScreen'
+import { ModeSelectScreen } from './ModeSelectScreen'
+import { DifficultyPanel, resolveDifficulty } from './DifficultyPanel'
+import type { DifficultyPreset } from './DifficultyPanel'
+import { MidiFileUpload } from './MidiFileUpload'
 import { playAttackSound, playDamageSound, playGameOverSound, playWaveStartSound } from '../audio/synth'
 import { ensureAudioContext } from '../audio/audioContext'
-import { saveBestScore } from '../utils/storage'
+import { saveBestScore, loadProgression, saveProgression, saveModeBestScore, getAllModeBestScores, saveGameSettings, loadGameSettings, saveDisplaySettings, loadMicSensitivity, saveMicSensitivity } from '../utils/storage'
+import { calculateXP, addXP } from '../game/progression'
+import type { ProgressionData } from '../game/progression'
 import { setSmuflReady } from '../game/renderer'
+import type { GameMode, NoteRangeConfig } from '../game/types'
+import { requestReplay } from '../game/modes/perfectPitch'
+import { createFullSongState } from '../game/modes/fullSong'
+import type { MidiNoteEvent } from '../game/midiParser'
 
 export function GameCanvas() {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -26,18 +36,112 @@ export function GameCanvas() {
   }, [])
 
   useCanvasSize(canvasRef, containerRef)
-  const { hud, inputRef, stateRef, startGame, goToTitle } = useGameLoop(canvasRef)
+  const { hud, inputRef, stateRef, startGame, goToModeSelect, goToTitle } = useGameLoop(canvasRef)
 
   const isPlaying = hud.phase === 'playing' || hud.phase === 'waveAnnounce'
 
   useKeyboardInput(inputRef, isPlaying)
-  const { micEnabled, micError, detectedNote, enableMic, disableMic } = useAudio(inputRef, isPlaying, hud.settings.instrument)
+  // Disable mic auto-start in Chords mode (mic cannot detect polyphonic chords)
+  const isChordsMode = hud.mode === 'chords'
+  const [savedSensitivity] = useState(() => loadMicSensitivity())
+  const { micEnabled, micError, detectedNote, enableMic, disableMic, micSensitivity, setMicSensitivity } = useAudio(inputRef, isPlaying && !isChordsMode, hud.settings.instrument, savedSensitivity)
+
+  const handleSensitivityChange = useCallback((value: number) => {
+    setMicSensitivity(value)
+    saveMicSensitivity(value)
+  }, [setMicSensitivity])
   const { midiConnected, midiDeviceName, midiError, activeMidiNote } = useMidiInput(inputRef, isPlaying)
+
+  // Progression state: loaded from localStorage on mount
+  const [progression, setProgression] = useState<ProgressionData>(() => loadProgression())
+  const [modeBestScores, setModeBestScores] = useState(() => getAllModeBestScores())
+
+  // Game-over XP results (set when game ends, consumed by GameOverScreen)
+  const [xpGained, setXpGained] = useState(0)
+  const [leveledUp, setLeveledUp] = useState(false)
+  const [newLevel, setNewLevel] = useState(0)
+
+  // Mode selection state (difficulty & note range are chosen before starting a game)
+  // Load persisted settings from localStorage as initial values
+  const [selectedDifficulty, setSelectedDifficulty] = useState<DifficultyPreset>(() => {
+    const saved = loadGameSettings()
+    return (saved.difficulty as DifficultyPreset) || 'normal'
+  })
+  const [selectedNoteRange, setSelectedNoteRange] = useState<NoteRangeConfig>(() => {
+    const saved = loadGameSettings()
+    return saved.noteRange || { minNote: 'C', maxNote: 'B' }
+  })
+
+  // Full Song mode: MIDI file upload state
+  const [showMidiUpload, setShowMidiUpload] = useState(false)
+
+  // Reset MIDI upload state when phase changes away from modeSelect
+  useEffect(() => {
+    if (hud.phase !== 'modeSelect') {
+      setShowMidiUpload(false)
+    }
+  }, [hud.phase])
+
+  // Persist difficulty/noteRange to localStorage on change
+  const handleDifficultyChange = useCallback((preset: DifficultyPreset) => {
+    setSelectedDifficulty(preset)
+    saveGameSettings(preset, selectedNoteRange)
+  }, [selectedNoteRange])
+
+  const handleNoteRangeChange = useCallback((range: NoteRangeConfig) => {
+    setSelectedNoteRange(range)
+    saveGameSettings(selectedDifficulty, range)
+  }, [selectedDifficulty])
+
+  const handleGoToModeSelect = useCallback(async () => {
+    await ensureAudioContext()
+    goToModeSelect()
+  }, [goToModeSelect])
+
+  const handleSelectMode = useCallback(async (mode: GameMode) => {
+    await ensureAudioContext()
+    if (mode === 'fullSong') {
+      // Show MIDI file upload UI instead of starting game immediately
+      setShowMidiUpload(true)
+      return
+    }
+    startGame(mode, resolveDifficulty(selectedDifficulty), selectedNoteRange)
+  }, [startGame, selectedDifficulty, selectedNoteRange])
+
+  /** Called when MIDI file is loaded and track selected in MidiFileUpload */
+  const handleMidiReady = useCallback((
+    timeline: MidiNoteEvent[],
+    trackInfo: { name: string; songDuration: number; trackIndex: number },
+  ) => {
+    setShowMidiUpload(false)
+    startGame('fullSong', resolveDifficulty(selectedDifficulty), selectedNoteRange)
+
+    // Inject parsed timeline data into the full song mode state
+    const fullSongData = createFullSongState(
+      timeline,
+      trackInfo.name,
+      trackInfo.songDuration,
+      trackInfo.trackIndex,
+    )
+    stateRef.current.modeState = {
+      progress: 0,
+      data: fullSongData as unknown as Record<string, unknown>,
+    }
+  }, [startGame, selectedDifficulty, selectedNoteRange, stateRef])
 
   const handleRestart = useCallback(async () => {
     await ensureAudioContext()
-    startGame()
-  }, [startGame])
+    const currentMode = stateRef.current.mode ?? 'noteFrenzy'
+    // For fullSong mode, go back to MIDI file upload instead of restarting with empty timeline
+    if (currentMode === 'fullSong') {
+      goToModeSelect()
+      setShowMidiUpload(true)
+      return
+    }
+    const currentDifficulty = stateRef.current.difficulty
+    const currentNoteRange = stateRef.current.noteRange
+    startGame(currentMode, currentDifficulty, currentNoteRange)
+  }, [startGame, stateRef, goToModeSelect])
 
   // Track previous state for sound effects
   const prevHpRef = useRef(hud.hp)
@@ -52,6 +156,19 @@ export function GameCanvas() {
   if (hud.phase === 'gameover' && prevPhaseRef.current !== 'gameover') {
     playGameOverSound()
     saveBestScore(hud.score)
+
+    // Calculate XP and update progression
+    const currentMode = stateRef.current.mode ?? 'noteFrenzy'
+    const earned = calculateXP(hud.score, hud.wave, currentMode)
+    const prevLevel = progression.level
+    const updated = addXP(progression, earned)
+    saveProgression(updated)
+    saveModeBestScore(currentMode, hud.score)
+    setProgression(updated)
+    setModeBestScores(getAllModeBestScores())
+    setXpGained(earned)
+    setLeveledUp(updated.level > prevLevel)
+    setNewLevel(updated.level)
   }
   if (hud.wave > prevWaveRef.current) {
     playWaveStartSound()
@@ -74,16 +191,24 @@ export function GameCanvas() {
             <HUD
               hp={hud.hp} maxHp={hud.maxHp} score={hud.score} wave={hud.wave} combo={hud.combo}
               settings={hud.settings}
-              onToggleSolfege={() => {
-                stateRef.current.settings.showSolfege = !stateRef.current.settings.showSolfege
+              mode={hud.mode}
+              modeState={hud.modeState}
+              onCycleNotation={() => {
+                const order: import('../game/types').NotationFormat[] = ['abc', 'solfege', 'staff']
+                const idx = order.indexOf(stateRef.current.settings.notationFormat)
+                stateRef.current.settings.notationFormat = order[(idx + 1) % order.length]
+                saveDisplaySettings({ ...stateRef.current.settings })
               }}
               onToggleTheme={() => {
                 stateRef.current.settings.theme = stateRef.current.settings.theme === 'dark' ? 'light' : 'dark'
+                saveDisplaySettings({ ...stateRef.current.settings })
               }}
               onChangeInstrument={(inst) => {
                 stateRef.current.settings.instrument = inst
+                saveDisplaySettings({ ...stateRef.current.settings })
               }}
               onHome={goToTitle}
+              onReplay={() => requestReplay(stateRef.current)}
             />
             <NoteIndicator note={hud.lastNoteAttack} micNote={detectedNote} />
           </>
@@ -91,7 +216,7 @@ export function GameCanvas() {
 
         {hud.phase === 'title' && (
           <TitleScreen
-            onStart={handleRestart}
+            onStart={handleGoToModeSelect}
             instrument={hud.settings.instrument}
             onChangeInstrument={(inst) => {
               stateRef.current.settings.instrument = inst
@@ -99,8 +224,40 @@ export function GameCanvas() {
           />
         )}
 
+        {hud.phase === 'modeSelect' && !showMidiUpload && (
+          <ModeSelectScreen
+            onSelectMode={handleSelectMode}
+            onBack={goToTitle}
+            playerLevel={progression.level}
+            progressionData={progression}
+            modeBestScores={modeBestScores}
+          >
+            <DifficultyPanel
+              difficulty={selectedDifficulty}
+              noteRange={selectedNoteRange}
+              onChangeDifficulty={handleDifficultyChange}
+              onChangeNoteRange={handleNoteRangeChange}
+            />
+          </ModeSelectScreen>
+        )}
+
+        {showMidiUpload && (
+          <MidiFileUpload
+            onReady={handleMidiReady}
+            onBack={() => setShowMidiUpload(false)}
+          />
+        )}
+
         {hud.phase === 'gameover' && (
-          <GameOverScreen score={hud.score} wave={hud.wave} onRestart={handleRestart} onHome={goToTitle} />
+          <GameOverScreen
+            score={hud.score}
+            wave={hud.wave}
+            onRestart={handleRestart}
+            onHome={goToTitle}
+            xpGained={xpGained}
+            leveledUp={leveledUp}
+            newLevel={newLevel}
+          />
         )}
       </div>
 
@@ -110,10 +267,13 @@ export function GameCanvas() {
           micEnabled={micEnabled}
           micError={micError}
           onToggleMic={() => micEnabled ? disableMic() : enableMic()}
+          micDisabled={isChordsMode}
           midiConnected={midiConnected}
           midiDeviceName={midiDeviceName}
           midiError={midiError}
           activeMidiNote={activeMidiNote}
+          micSensitivity={micSensitivity}
+          onChangeMicSensitivity={handleSensitivityChange}
         />
       )}
     </div>

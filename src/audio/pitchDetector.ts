@@ -151,11 +151,18 @@ export interface PitchDetectorState {
   cooldownUntil: number     // 同じ音の再トリガー防止タイムスタンプ
   lastNoteTime: number      // 最後に音を検出した時刻
   decayCount: number        // ピークから減衰し続けているフレーム数
+  // マイク感度 (0.1〜3.0, デフォルト1.0) — 高いほど小さい音を拾う
+  sensitivity: number
+}
+
+export function setSensitivity(state: PitchDetectorState, value: number): void {
+  state.sensitivity = Math.max(0.1, Math.min(3.0, value))
 }
 
 export async function createPitchDetector(
   onNote: (note: NoteName | null) => void,
   instrument: InstrumentType = 'piano',
+  sensitivity: number = 1.0,
 ): Promise<PitchDetectorState> {
   const profile = INSTRUMENT_PROFILES[instrument]
   const ctx = await ensureAudioContext()
@@ -203,6 +210,7 @@ export async function createPitchDetector(
     cooldownUntil: 0,
     lastNoteTime: 0,
     decayCount: 0,
+    sensitivity: Math.max(0.1, Math.min(3.0, sensitivity)),
   }
 
   state.intervalId = window.setInterval(() => pollPitch(state), POLL_INTERVAL)
@@ -217,15 +225,19 @@ const DECAY_RATIO = 0.35
 const DECAY_FRAMES = 8
 
 function pollPitch(state: PitchDetectorState): void {
-  const { profile } = state
+  const { profile, sensitivity } = state
   const now = performance.now()
+  // 感度でRMS閾値をスケール（感度が高い→閾値が低い→小さい音も拾う）
+  const sensScale = 1 / sensitivity
+  const effectiveSilenceRms = profile.silenceRms * sensScale
+  const effectiveRmsThreshold = profile.rmsThreshold * sensScale
 
   // --- 高速バッファでRMSチェック ---
   state.fastAnalyser.getFloatTimeDomainData(state.fastBuffer)
   const rms = computeRMS(state.fastBuffer)
 
   // ── 無音判定 ──
-  if (rms < profile.silenceRms) {
+  if (rms < effectiveSilenceRms) {
     state.silenceCount++
     if (state.silenceCount >= profile.silenceFrames && state.confirmedNote !== null) {
       state.confirmedNote = null
@@ -252,7 +264,7 @@ function pollPitch(state: PitchDetectorState): void {
   state.decayCount = 0
 
   // ── RMS閾値チェック ──
-  if (rms < profile.rmsThreshold) return
+  if (rms < effectiveRmsThreshold) return
 
   // ピークRMS更新（新しいアタックを検出）
   if (rms > state.peakRms) {

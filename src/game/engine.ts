@@ -1,16 +1,39 @@
-import type { GameState, GameInput, DisplaySettings, BeamStyle } from './types'
+import type { GameState, GameInput, GameMode, DifficultySettings, NoteRangeConfig, DisplaySettings, ModeState } from './types'
 import {
   PLAYER_MAX_HP, CANVAS_BASE_WIDTH, CANVAS_BASE_HEIGHT,
-  ENEMY_BASE_SPEED, ENEMY_SPEED_INCREMENT,
-  ENEMIES_BASE_COUNT, ENEMIES_INCREMENT,
-  WAVE_ANNOUNCE_DURATION, WAVE_INTERVAL,
-  NOTE_ATTACK_DISPLAY_DURATION, COMBO_TIMEOUT,
-  BEAM_LIFE, COLORS,
+  ENEMY_BASE_SPEED,
+  ENEMIES_BASE_COUNT,
 } from './constants'
-import { spawnWaveEnemies, moveEnemies, resetEnemyId } from './enemies'
-import { attackWithNote, checkEnemyPlayerCollision, updateParticles } from './collision'
+import { moveEnemies, resetEnemyId } from './enemies'
+import { checkEnemyPlayerCollision, updateParticles } from './collision'
+import { updateNoteFrenzyMode } from './modes/noteFrenzy'
+import { updateScalesMode, createScalesState } from './modes/scales'
+import { updateChordsMode, createChordsState } from './modes/chords'
+import { updatePerfectPitchMode, createPerfectPitchState } from './modes/perfectPitch'
+import { updateFullSongMode, createFullSongState } from './modes/fullSong'
 
-export function createInitialState(settings?: Partial<DisplaySettings>): GameState {
+/** Create initial ModeState for the given game mode */
+export function createModeState(mode: GameMode): ModeState {
+  switch (mode) {
+    case 'noteFrenzy':
+      return { progress: 0, data: {} }
+    case 'scales':
+      return { progress: 0, data: createScalesState() as unknown as Record<string, unknown> }
+    case 'chords':
+      return { progress: 0, data: createChordsState() as unknown as Record<string, unknown> }
+    case 'perfectPitch':
+      return { progress: 0, data: createPerfectPitchState() as unknown as Record<string, unknown> }
+    case 'fullSong':
+      return { progress: 0, data: createFullSongState([]) as unknown as Record<string, unknown> }
+  }
+}
+
+export function createInitialState(
+  mode: GameMode = 'noteFrenzy',
+  settings?: Partial<DisplaySettings>,
+  difficulty?: DifficultySettings,
+  noteRange?: NoteRangeConfig,
+): GameState {
   resetEnemyId()
   return {
     player: {
@@ -26,8 +49,8 @@ export function createInitialState(settings?: Partial<DisplaySettings>): GameSta
     score: 0,
     wave: 0,
     waveTimer: 0.5, // short delay before first wave
-    enemiesPerWave: ENEMIES_BASE_COUNT,
-    enemySpeed: ENEMY_BASE_SPEED,
+    enemiesPerWave: Math.ceil(ENEMIES_BASE_COUNT * (difficulty?.spawnRateMultiplier ?? 1.0)),
+    enemySpeed: ENEMY_BASE_SPEED * (difficulty?.speedMultiplier ?? 1.0),
     nextEnemyId: 0,
     phase: 'playing',
     waveAnnounceTimer: 0,
@@ -36,94 +59,26 @@ export function createInitialState(settings?: Partial<DisplaySettings>): GameSta
     noteAttackTimer: 0,
     combo: 0,
     lastAttackTime: 0,
-    settings: { showSolfege: true, theme: 'dark', instrument: 'piano', ...settings },
+    settings: { notationFormat: 'solfege', theme: 'dark', instrument: 'piano', ...settings },
+    mode,
+    modeState: createModeState(mode),
+    difficulty,
+    noteRange,
   }
 }
 
-export function updateGame(state: GameState, dt: number, input: GameInput): void {
-  if (state.phase === 'gameover') return
-
-  state.time += dt
-
-  // Wave announce phase
-  if (state.phase === 'waveAnnounce') {
-    state.waveAnnounceTimer -= dt
-    if (state.waveAnnounceTimer <= 0) {
-      state.phase = 'playing'
-      // Spawn enemies for this wave
-      const cx = CANVAS_BASE_WIDTH / 2
-      const cy = CANVAS_BASE_HEIGHT / 2
-      const newEnemies = spawnWaveEnemies(
-        state.enemiesPerWave, cx, cy, state.enemySpeed, state.wave,
-      )
-      state.enemies.push(...newEnemies)
-    }
-    // Still process particles and note display during announce
-    updateParticles(state.particles, dt)
-    if (state.noteAttackTimer > 0) state.noteAttackTimer -= dt
-    return
-  }
-
-  // Handle note attack input
-  if (input.activeNote) {
-    // Only attack if this is a new note (not held from previous frame)
-    if (state.lastNoteAttack !== input.activeNote || state.noteAttackTimer <= 0) {
-      const { kills, hitPositions } = attackWithNote(input.activeNote, state.enemies, state.particles)
-      state.lastNoteAttack = input.activeNote
-      state.noteAttackTimer = NOTE_ATTACK_DISPLAY_DURATION
-
-      // ビーム生成: プレイヤー → 撃破位置
-      const beamColor = COLORS.noteColors[input.activeNote]
-      const beamStyle: BeamStyle = state.combo >= 5 ? 'lightning' : state.combo >= 3 ? 'zigzag' : 'straight'
-      for (const pos of hitPositions) {
-        state.beams.push({
-          from: { x: state.player.pos.x, y: state.player.pos.y },
-          to: { x: pos.x, y: pos.y },
-          color: beamColor,
-          life: BEAM_LIFE,
-          maxLife: BEAM_LIFE,
-          style: beamStyle,
-        })
-      }
-
-      if (kills > 0) {
-        // Combo system
-        if (state.time - state.lastAttackTime < COMBO_TIMEOUT) {
-          state.combo += kills
-        } else {
-          state.combo = kills
-        }
-        state.lastAttackTime = state.time
-        const comboMultiplier = Math.max(1, Math.floor(state.combo / 3))
-        state.score += kills * 100 * comboMultiplier
-      }
-    }
-  } else {
-    if (state.noteAttackTimer <= 0) {
-      state.lastNoteAttack = null
-    }
-  }
-
-  if (state.noteAttackTimer > 0) state.noteAttackTimer -= dt
-
+/**
+ * Common update logic shared across all game modes.
+ *
+ * Handles: enemy movement, enemy-player collision, damage flash,
+ * dead enemy removal, particle updates, beam decay, game-over check.
+ */
+function updateCommon(state: GameState, dt: number): void {
   // Move enemies
   moveEnemies(state.enemies, dt)
 
   // Check collisions
   checkEnemyPlayerCollision(state.enemies, state.player, state.time)
-
-  // インベーダーが画面最下段に到達したらダメージ＆消滅
-  for (const e of state.enemies) {
-    if (!e.alive || e.enemyType !== 'invader') continue
-    if (e.pos.y >= CANVAS_BASE_HEIGHT - 20) {
-      e.alive = false
-      if (state.time >= state.player.invincibleUntil) {
-        state.player.hp--
-        state.player.invincibleUntil = state.time + 1.5
-        state.player.damageFlash = 0.3
-      }
-    }
-  }
 
   // Update damage flash
   if (state.player.damageFlash > 0) {
@@ -145,19 +100,38 @@ export function updateGame(state: GameState, dt: number, input: GameInput): void
   // Check game over
   if (state.player.hp <= 0) {
     state.phase = 'gameover'
-    return
+  }
+}
+
+export function updateGame(state: GameState, dt: number, input: GameInput): void {
+  if (state.phase === 'gameover') return
+  if (state.phase === 'modeSelect') return
+
+  state.time += dt
+
+  // Dispatch to mode-specific update function
+  const mode = state.mode ?? 'noteFrenzy'
+  let skipCommon = false
+
+  switch (mode) {
+    case 'noteFrenzy':
+      skipCommon = updateNoteFrenzyMode(state, dt, input)
+      break
+    case 'scales':
+      skipCommon = updateScalesMode(state, dt, input)
+      break
+    case 'chords':
+      skipCommon = updateChordsMode(state, dt, input)
+      break
+    case 'perfectPitch':
+      skipCommon = updatePerfectPitchMode(state, dt, input)
+      break
+    case 'fullSong':
+      skipCommon = updateFullSongMode(state, dt, input)
+      break
   }
 
-  // Wave management
-  if (state.enemies.length === 0) {
-    state.waveTimer -= dt
-    if (state.waveTimer <= 0) {
-      state.wave++
-      state.enemiesPerWave = ENEMIES_BASE_COUNT + (state.wave - 1) * ENEMIES_INCREMENT
-      state.enemySpeed = ENEMY_BASE_SPEED + (state.wave - 1) * ENEMY_SPEED_INCREMENT
-      state.phase = 'waveAnnounce'
-      state.waveAnnounceTimer = WAVE_ANNOUNCE_DURATION
-      state.waveTimer = WAVE_INTERVAL
-    }
+  if (!skipCommon) {
+    updateCommon(state, dt)
   }
 }

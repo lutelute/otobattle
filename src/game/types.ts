@@ -39,6 +39,8 @@ export interface Enemy {
   shape: EnemyShape   // 個体を区別するための形状
   enemyType: EnemyType
   invaderState?: InvaderState
+  /** コードグループID（Chords モードで同一コードに属する敵を識別） */
+  chordGroupId?: string
 }
 
 /** 敵の形状バリエーション（同じ音でも形で区別可能） */
@@ -76,9 +78,37 @@ export interface Player {
 /** 楽器タイプ */
 export type InstrumentType = 'piano' | 'violin' | 'viola' | 'cello' | 'guitar' | 'flute' | 'voice'
 
+/** ゲームモード */
+export type GameMode = 'noteFrenzy' | 'scales' | 'chords' | 'perfectPitch' | 'fullSong'
+
+/** 記譜法フォーマット */
+export type NotationFormat = 'abc' | 'solfege' | 'staff'
+
+/** 難易度設定 */
+export interface DifficultySettings {
+  speedMultiplier: number      // 敵の速度倍率（デフォルト: 1.0）
+  spawnRateMultiplier: number  // 敵のスポーン頻度倍率（デフォルト: 1.0）
+  timePressure: number         // 制限時間の厳しさ（デフォルト: 1.0）
+}
+
+/** 音域設定 */
+export interface NoteRangeConfig {
+  minNote: NoteName   // 出題する最低音（デフォルト: 'C'）
+  maxNote: NoteName   // 出題する最高音（デフォルト: 'B'）
+  clefFilter?: ClefType // 特定の記号のみに制限（省略時: 全記号）
+}
+
+/** モード固有の状態（各モードで拡張される） */
+export interface ModeState {
+  /** モード内の進捗 (0.0〜1.0) */
+  progress: number
+  /** モード固有のデータ（各モードが独自に使う） */
+  data: Record<string, unknown>
+}
+
 /** 表示設定 */
 export interface DisplaySettings {
-  showSolfege: boolean  // カタカナ(ソルフェージュ)表記 on/off
+  notationFormat: NotationFormat // 記譜法フォーマット（'abc'=英語音名, 'solfege'=カタカナ, 'staff'=五線譜のみ）
   theme: 'dark' | 'light' // 背景テーマ
   instrument: InstrumentType // 使用楽器（ピッチ検出最適化用）
 }
@@ -94,7 +124,7 @@ export interface GameState {
   enemiesPerWave: number
   enemySpeed: number
   nextEnemyId: number
-  phase: 'title' | 'playing' | 'gameover' | 'waveAnnounce'
+  phase: 'title' | 'playing' | 'gameover' | 'waveAnnounce' | 'modeSelect'
   waveAnnounceTimer: number
   time: number
   lastNoteAttack: NoteName | null
@@ -102,9 +132,19 @@ export interface GameState {
   combo: number
   lastAttackTime: number
   settings: DisplaySettings
+  /** 現在のゲームモード（省略時: 'noteFrenzy'） */
+  mode?: GameMode
+  /** モード固有の状態 */
+  modeState?: ModeState
+  /** 難易度設定 */
+  difficulty?: DifficultySettings
+  /** 音域設定 */
+  noteRange?: NoteRangeConfig
 }
 
 export type GameInput = {
   activeNote: NoteName | null
+  /** コード（和音）対応: 同時押しの全ノート */
+  activeNotes?: NoteName[]
   source: 'keyboard' | 'piano' | 'mic' | 'midi' | null
 }

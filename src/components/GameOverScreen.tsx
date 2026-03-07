@@ -5,9 +5,12 @@ interface GameOverScreenProps {
   wave: number
   onRestart: () => void
   onHome?: () => void
+  xpGained?: number
+  leveledUp?: boolean
+  newLevel?: number
 }
 
-export function GameOverScreen({ score, wave, onRestart, onHome }: GameOverScreenProps) {
+export function GameOverScreen({ score, wave, onRestart, onHome, xpGained, leveledUp, newLevel }: GameOverScreenProps) {
   const best = getBestScore()
   const isNewBest = score >= best && score > 0
 
@@ -91,6 +94,46 @@ export function GameOverScreen({ score, wave, onRestart, onHome }: GameOverScree
             BEST: <span style={{ color: '#94a3b8' }}>{Math.max(best, score).toLocaleString()}</span>
           </p>
         </div>
+
+        {/* XP gained */}
+        {xpGained != null && xpGained > 0 && (
+          <div
+            className="text-center pt-3 mt-3"
+            style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-[10px] mb-1" style={{ color: '#64748b' }}>XP GAINED</p>
+            <p
+              className="text-sm font-bold"
+              style={{
+                color: '#a78bfa',
+                textShadow: '0 0 8px rgba(167,139,250,0.4)',
+              }}
+            >
+              +{xpGained.toLocaleString()} XP
+            </p>
+          </div>
+        )}
+
+        {/* Level up notification */}
+        {leveledUp && newLevel != null && (
+          <div className="text-center mt-3">
+            <p
+              className="text-lg font-bold animate-pulse"
+              style={{
+                color: '#34d399',
+                textShadow: '0 0 16px rgba(52,211,153,0.6), 0 0 32px rgba(52,211,153,0.3)',
+              }}
+            >
+              LEVEL UP!
+            </p>
+            <p
+              className="text-[10px] mt-1"
+              style={{ color: '#6ee7b7' }}
+            >
+              You are now Level {newLevel}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Action buttons */}

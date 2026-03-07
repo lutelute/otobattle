@@ -1,5 +1,5 @@
 import { useRef, useCallback, useEffect, useState } from 'react'
-import type { GameState, GameInput, DisplaySettings } from '../game/types'
+import type { GameState, GameInput, GameMode, DifficultySettings, NoteRangeConfig, DisplaySettings, ModeState } from '../game/types'
 import { createInitialState, updateGame } from '../game/engine'
 import { render } from '../game/renderer'
 
@@ -12,6 +12,8 @@ export interface HudState {
   phase: GameState['phase']
   lastNoteAttack: GameState['lastNoteAttack']
   settings: DisplaySettings
+  mode: GameMode
+  modeState?: ModeState
 }
 
 export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>) {
@@ -21,21 +23,45 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
   const lastTimeRef = useRef<number>(0)
   const [hud, setHud] = useState<HudState>({
     hp: 5, maxHp: 5, score: 0, wave: 0, combo: 0, phase: 'title', lastNoteAttack: null,
-    settings: { showSolfege: true, theme: 'dark', instrument: 'piano' },
+    settings: { notationFormat: 'solfege', theme: 'dark', instrument: 'piano' },
+    mode: 'noteFrenzy',
   })
   const hudThrottleRef = useRef(0)
 
-  const startGame = useCallback(() => {
+  const startGame = useCallback((
+    mode?: GameMode,
+    difficulty?: DifficultySettings,
+    noteRange?: NoteRangeConfig,
+  ) => {
     const settings = stateRef.current.settings
-    stateRef.current = createInitialState(settings)
+    const resolvedMode = mode ?? stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(resolvedMode, settings, difficulty, noteRange)
     lastTimeRef.current = 0
+    // Clear any pending input from previous session
+    inputRef.current = { activeNote: null, source: null }
+  }, [])
+
+  const goToModeSelect = useCallback(() => {
+    // Create fresh state to ensure no stale enemies/particles/beams/modeState leak
+    const settings = stateRef.current.settings
+    const mode = stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(mode, settings)
+    stateRef.current.phase = 'modeSelect'
+    lastTimeRef.current = 0
+    // Clear any pending input
+    inputRef.current = { activeNote: null, source: null }
+    // 即座にHUDに反映
+    setHud(prev => ({ ...prev, phase: 'modeSelect' }))
   }, [])
 
   const goToTitle = useCallback(() => {
     const settings = stateRef.current.settings
-    stateRef.current = createInitialState(settings)
+    const mode = stateRef.current.mode ?? 'noteFrenzy'
+    stateRef.current = createInitialState(mode, settings)
     stateRef.current.phase = 'title'
     lastTimeRef.current = 0
+    // Clear any pending input
+    inputRef.current = { activeNote: null, source: null }
     // 即座にHUDに反映
     setHud(prev => ({ ...prev, phase: 'title' }))
   }, [])
@@ -74,6 +100,8 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
         phase: state.phase,
         lastNoteAttack: state.lastNoteAttack,
         settings: { ...state.settings },
+        mode: state.mode ?? 'noteFrenzy',
+        modeState: state.modeState ? { ...state.modeState } : undefined,
       })
     }
 
@@ -85,5 +113,5 @@ export function useGameLoop(canvasRef: React.RefObject<HTMLCanvasElement | null>
     return () => cancelAnimationFrame(rafRef.current)
   }, [loop])
 
-  return { hud, inputRef, stateRef, startGame, goToTitle }
+  return { hud, inputRef, stateRef, startGame, goToModeSelect, goToTitle }
 }

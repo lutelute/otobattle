@@ -36,6 +36,67 @@ export function attackWithNote(
   return { kills, hitPositions }
 }
 
+/**
+ * Chord attack: check if all notes of a chord group are present in activeNotes.
+ * When a full chord group is matched, all enemies in that group are killed.
+ *
+ * @param activeNotes - currently pressed notes
+ * @param enemies - all enemies on screen
+ * @param particles - particle array (kill particles are spawned)
+ * @returns kills count and hit positions for beam generation
+ */
+export function attackWithChord(
+  activeNotes: NoteName[],
+  enemies: Enemy[],
+  particles: Particle[],
+): AttackResult {
+  if (activeNotes.length === 0) return { kills: 0, hitPositions: [] }
+
+  let kills = 0
+  const hitPositions: Vec2[] = []
+
+  // Group alive enemies by chordGroupId
+  const chordGroups = new Map<string, Enemy[]>()
+  for (const e of enemies) {
+    if (!e.alive || !e.chordGroupId) continue
+    let group = chordGroups.get(e.chordGroupId)
+    if (!group) {
+      group = []
+      chordGroups.set(e.chordGroupId, group)
+    }
+    group.push(e)
+  }
+
+  // Check each chord group: all notes must be present in activeNotes
+  for (const [, groupEnemies] of chordGroups) {
+    const requiredNotes = groupEnemies.map(e => e.note)
+    const allMatched = requiredNotes.every(n => activeNotes.includes(n))
+    if (!allMatched) continue
+
+    // Kill all enemies in this chord group
+    for (const e of groupEnemies) {
+      e.alive = false
+      kills++
+      hitPositions.push({ x: e.pos.x, y: e.pos.y })
+      // Spawn particles
+      for (let i = 0; i < PARTICLE_COUNT_PER_KILL; i++) {
+        const angle = (Math.PI * 2 * i) / PARTICLE_COUNT_PER_KILL + randomFloat(-0.3, 0.3)
+        const speed = randomFloat(80, 200)
+        particles.push({
+          pos: { x: e.pos.x, y: e.pos.y },
+          vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+          life: PARTICLE_LIFE,
+          maxLife: PARTICLE_LIFE,
+          color: COLORS.noteColors[e.note],
+          size: randomFloat(3, 7),
+        })
+      }
+    }
+  }
+
+  return { kills, hitPositions }
+}
+
 export function checkEnemyPlayerCollision(
   enemies: Enemy[],
   player: Player,

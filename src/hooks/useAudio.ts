@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { GameInput, NoteName, InstrumentType } from '../game/types'
-import { createPitchDetector, stopPitchDetector } from '../audio/pitchDetector'
+import { createPitchDetector, stopPitchDetector, setSensitivity } from '../audio/pitchDetector'
 import type { PitchDetectorState } from '../audio/pitchDetector'
 
 export function useAudio(
   inputRef: React.MutableRefObject<GameInput>,
   enabled: boolean,
   instrument: InstrumentType = 'piano',
+  initialSensitivity: number = 1.0,
 ) {
   const [micEnabled, setMicEnabled] = useState(false)
   const [micError, setMicError] = useState<string | null>(null)
   const [detectedNote, setDetectedNote] = useState<NoteName | null>(null)
+  const [micSensitivity, setMicSensitivityState] = useState(initialSensitivity)
   const detectorRef = useRef<PitchDetectorState | null>(null)
   const instrumentRef = useRef(instrument)
 
@@ -26,7 +28,7 @@ export function useAudio(
           inputRef.current = { activeNote: note, source: note ? 'mic' : null }
         }
         setDetectedNote(note)
-      }, inst ?? instrumentRef.current)
+      }, inst ?? instrumentRef.current, micSensitivity)
       detectorRef.current = detector
       setMicEnabled(true)
       setMicError(null)
@@ -69,5 +71,12 @@ export function useAudio(
     }
   }, [])
 
-  return { micEnabled, micError, detectedNote, enableMic, disableMic }
+  const setMicSensitivity = useCallback((value: number) => {
+    setMicSensitivityState(value)
+    if (detectorRef.current) {
+      setSensitivity(detectorRef.current, value)
+    }
+  }, [])
+
+  return { micEnabled, micError, detectedNote, enableMic, disableMic, micSensitivity, setMicSensitivity }
 }
